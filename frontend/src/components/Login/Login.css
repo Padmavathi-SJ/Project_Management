@@ -1,0 +1,182 @@
+* {
+    font-family:  sans-serif;
+    background-color: #e7ebfe;
+    margin: 0;
+    box-sizing: border-box;
+  }
+  body, html {
+    height: 100vh;
+    background-color: #e7ebfe;
+    overflow: hidden;
+  }
+  
+  .login_div {
+    width: 99%;
+    max-width: 420px;
+    margin: 5% auto;
+    height: 20%;
+    text-align: center;
+    padding: 30px 20px;
+    border-radius: 10px;
+    margin-top: 3%;
+    background: #ffffff;
+    box-shadow: 8px 8px 15px rgba(153, 52, 255, 0.2);
+  }
+  
+  .Login {
+    font-weight: bold;
+    font-size: 180%;
+    color: rgb(136, 47, 224);
+    background-color: white;
+    margin-top: -6%;
+    z-index: 12;
+  }
+  
+  .lnamediv,
+  .lpassdiv {
+    border-bottom: 1px solid #ccc;
+    width: 90%;
+    margin: 20px auto;
+    display: flex;
+    align-items: center;
+    background: #ffffff;
+    padding-bottom: 5px;
+  }
+  .symbol {
+    font-size: 130%;
+    margin-right: 10px;
+    background: #ffffff;
+    padding-left: .2%;
+    padding-bottom: 1%;
+  }
+  
+  .lock-icon {
+    width: 20px;
+    height: 20px;
+    padding-bottom: 10%;
+  }
+  
+  .lname{
+    border: none;
+    width: 100%;
+    font-size: 120%;
+    padding: 8px;
+    padding-left: 3.2%;
+    background: #ffffff;
+    outline: none;
+  }
+ 
+  .lpass {
+    border: none;
+    width: 100%;
+    font-size: 120%;
+    padding: 8px;
+    margin-left: 3%;
+    background: #ffffff;
+    outline: none;
+  }
+  
+  .lbutton {
+    width: 90%;
+    font-size: 130%;
+    padding: 10px;
+    margin: 20px 0;
+    color: #fff;
+    background-color:  rgb(158, 67, 255);
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  
+  .lbutton:hover {
+    transform: scale(1.02);
+    transition: 0.3s;
+  }
+  
+  .gdiv {
+    border: 1px solid #888;
+    width: 90%;
+    margin: 0 auto;
+    padding: 10px;
+    background: #ffffff;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap:5px;
+    cursor: pointer;
+    margin-bottom: 2%;
+  }
+
+  .gdiv:hover{ 
+    transform: scale(1.02);
+    transition: 0.3s;
+  }
+  
+  .google-logo {
+    width: 20px;
+    height: 20px;
+    background: #ffffff;
+  }
+  
+  .glogin {
+    border: none;
+    background-color: white;
+    font-size: 100%;
+    cursor: pointer;
+  }
+
+  .lock{
+    height:25px;
+    background-color: white;
+  }
+
+.psignup{
+  background-color: white;
+  opacity: 0.6;
+}
+
+.dsignup{
+  background-color: white;
+}
+
+.linksignup{
+  color:  rgb(158, 67, 255);
+  text-decoration: none;
+  background-color: white;
+  font-size: 111%;
+}
+
+.divider {
+  position: relative;
+  width: 90%;
+  margin: 20px auto;
+  text-align: center;
+  margin-bottom: 8%;
+}
+
+.divider hr {
+  border: none;
+  border-top: 1px solid #ccc;
+  margin: 0;
+}
+
+.divider span {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: #ffffff;
+  padding: 0 10px;
+  font-size: 1rem;
+  color: #555;
+  font-size: 140%;
+}
+
+/* Prevent user selection for the entire login page */
+.login_div{
+  user-select: none;           /* Standard */
+  -webkit-user-select: none;   /* Safari */
+  -moz-user-select: none;      /* Firefox */
+  -ms-user-select: none;       /* IE/Edge */
+}
