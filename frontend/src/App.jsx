@@ -5,7 +5,7 @@ import './index.css';
 import Student_Dashboard from "./components/Students/Student_Dashboard";
 import Progress_Update from "./components/Students/Progress_Update";
 import Project_Details from "./components/Students/Project_Details";
-import Student_Team from "./components/Students/Schedule_review";
+//import Student_Team from "./components/Students/Schedule_review";
 import Admin from "./components/Admin/Admin";
 import Add_Users from "./components/Admin/Add_Users";
 import Posted_project from "./components/Admin/Posted_project";
@@ -31,7 +31,7 @@ import TimeLine from "./components/Admin/Timeline";
 import TeamListByDepartment from "./components/Admin/TeamListByDepartment";
 import NotFound from "./NotFound";
 import Student_expert_review from "./components/Subject_expert/Student_expert_review";
-import Schedule_review from "./components/Students/Schedule_review";
+import Review_Schedules from "./components/Students/ReviewSchedules";
 import ChangeTimeLine from "./components/Admin/ChangeTimeLine";
 import { useSelector } from "react-redux";
 import Review_projects from "./components/guide/Review_projects";
@@ -47,8 +47,11 @@ import BulkUploadUsers from "./components/Admin/BulkUploadUsers";
 import PrivateRoute from "./components/Login/PrivateRoute";
 import PublicRoute from "./components/Login/PublicRoute";
 
-import ScheduleReview from './components/guide/schedule_review'
-
+import ReviewScheduling from './components/guide/Review_Scheduling';
+/*
+import GuideScheduleReview from './components/guide/schedule_review';
+import SubExpertScheduleReview from './components/Subject_expert/Schedule_review';
+*/
 
 const Loader = () => {
   const dispatch = useDispatch();
@@ -102,7 +105,7 @@ function App() {
                   {userselector?.guide_reg_num && (
                     <>
                       <Route path="queries" element={<Queries />} />
-                      <Route path="review" element={<Schedule_review />} />
+                      <Route path="review" element={<Review_Schedules />} />
                       <Route path="Progress_update" element={<Progress_Update />} />
                       <Route path="week" element={<WeeklyLogsHistory />} />
                     </>
@@ -144,7 +147,8 @@ function App() {
               <Route path="team_progress" element={<Guide_team_progress />} />
               <Route path="review_progress" element={<Review_projects />} />
               <Route path="team-details/:teamId" element={<Team_Details />} />
-              <Route path="schedule-review" element={<ScheduleReview />} />
+              <Route path="schedule-review" element={<ReviewScheduling />} />
+              
             </Route>
           </Route>
 
@@ -154,6 +158,7 @@ function App() {
             <Route index element={<SubjectExpertDashboard />} />
             <Route path="review" element={<Student_expert_review />} />
             <Route path="remarks" element={<Subject_expert_remarks />} />
+           {/* <Route path="schedule-review" element={<SubExpertScheduleReview />} /> */}
           </Route>
 
           <Route path="*" element={<NotFound />} />

@@ -5,8 +5,8 @@ import { useSelector } from 'react-redux';
 
 const ScheduleReview = ({ onSuccess }) => {
   const navigate = useNavigate();
-  // Consistent way to get guide reg num as in Team_Details
-  const guideRegNum = useSelector((state) => state.userSlice?.reg_num);
+  // Get sub-expert reg num from Redux store
+  const subExpertRegNum = useSelector((state) => state.userSlice?.reg_num);
 
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -22,8 +22,8 @@ const ScheduleReview = ({ onSuccess }) => {
   });
 
   useEffect(() => {
-    if (!guideRegNum) {
-      setError('Guide registration number not found');
+    if (!subExpertRegNum) {
+      setError('Sub-expert registration number not found');
       setLoading(false);
       return;
     }
@@ -31,8 +31,9 @@ const ScheduleReview = ({ onSuccess }) => {
     const fetchTeams = async () => {
       try {
         setLoading(true);
-        const response = await instance.get(`/guide/${guideRegNum}/teams`);
-        setTeams(response.data.teams);
+        // Updated endpoint for sub-expert teams
+        const response = await instance.get(`/sub-expert/${subExpertRegNum}/teams`);
+        setTeams(response.data.teams || response.data);
       } catch (err) {
         setError(err.response?.data?.message || 'Failed to fetch teams');
       } finally {
@@ -41,7 +42,7 @@ const ScheduleReview = ({ onSuccess }) => {
     };
 
     fetchTeams();
-  }, [guideRegNum]);
+  }, [subExpertRegNum]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -51,33 +52,30 @@ const ScheduleReview = ({ onSuccess }) => {
     }));
   };
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  if (!guideRegNum) {
-    alert('Guide registration number not found');
-    return;
-  }
-
-  try {
-    const selectedTeam = teams.find((t) => t.team_id === formData.team_id);
-    const response = await instance.post(`/guide/${guideRegNum}/schedule`, {
-      ...formData,
-      project_id: selectedTeam?.project_id || ''
-    });
-
-    alert(response.data.message || 'Review scheduled successfully!');
-
-    // ✅ Trigger callback if provided
-    if (onSuccess) {
-      onSuccess();
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!subExpertRegNum) {
+      alert('Sub-expert registration number not found');
+      return;
     }
 
-    // ✅ Navigate to the /schedule-review route
-    navigate('/guide/schedule-review');
-  } catch (err) {
-    alert(err.response?.data?.message || 'Failed to schedule review');
-  }
-};
+    try {
+      const selectedTeam = teams.find((t) => t.team_id === formData.team_id);
+      const response = await instance.post(`/sub-expert/${subExpertRegNum}/schedule`, {
+        ...formData,
+        project_id: selectedTeam?.project_id || ''
+      });
+
+      alert(response.data.message || 'Review scheduled successfully!');
+     if (onSuccess){
+      onSuccess();
+     } 
+     navigate('/guide/schedule-review');
+     // Call the success handler
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to schedule review');
+    }
+  };
 
 
   if (loading) return <div className="p-4">Loading teams...</div>;
@@ -85,7 +83,7 @@ const handleSubmit = async (e) => {
 
   return (
     <div className="p-6 max-w-4xl mx-auto bg-white rounded-lg shadow-md">
-      <h1 className="text-2xl font-bold mb-6 text-purple-700">Schedule Review</h1>
+      <h1 className="text-2xl font-bold mb-6 text-purple-700">Schedule Review (Sub-Expert)</h1>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
@@ -179,4 +177,3 @@ const handleSubmit = async (e) => {
 };
 
 export default ScheduleReview;
-// ...existing code...
