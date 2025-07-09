@@ -25,6 +25,7 @@ const mentorRoute = require("./Routes/mentorRoute");
 const generalRoute = require("./Routes/generalRoute");
 
 const guideRoutes = require("./Routes/guide_routes");
+const sub_expertRoutes = require('./Routes/sub-expert_routes.js')
 
 // Middleware
 app.use(express.json());
@@ -251,6 +252,7 @@ app.use("/", mentorRoute);
 app.use("/", generalRoute);
 
 app.use("/", guideRoutes);
+app.use("/", sub_expertRoutes)
 
 // Serve static files
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
