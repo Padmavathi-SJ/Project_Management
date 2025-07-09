@@ -26,6 +26,7 @@ const generalRoute = require("./Routes/generalRoute");
 
 const guideRoutes = require("./Routes/guide_routes");
 const sub_expertRoutes = require('./Routes/sub-expert_routes.js')
+const studentReviewRoutes = require('./Routes/student_routes.js');
 
 // Middleware
 app.use(express.json());
@@ -240,6 +241,9 @@ app.get("/api/user", authenticateJWT, (req, res, next) => {
     }
 });
 
+app.use("/", studentReviewRoutes);
+console.log("Student review routes mounted");
+
 // Mount routes
 app.use("/", authRoute);
 app.use("/", teacherRoute);
@@ -251,8 +255,9 @@ app.use("/", uploadRouter);
 app.use("/", mentorRoute);
 app.use("/", generalRoute);
 
-app.use("/", guideRoutes);
-app.use("/", sub_expertRoutes)
+app.use("/guide", guideRoutes);
+app.use("/", sub_expertRoutes);
+
 
 // Serve static files
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));

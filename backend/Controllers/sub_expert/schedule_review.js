@@ -2,7 +2,7 @@ const {
     get_teams_by_sub_expert, 
     create_sub_expert_review_schedule, 
     get_schedules_by_sub_expert 
-} = require('../../Models/sub_expert_routes/schedule_review.js');
+} = require('../../Models/sub_expert/schedule_review.js');
 const { v4: uuidv4 } = require('uuid');
 
 const fetch_teams = async (req, res) => {

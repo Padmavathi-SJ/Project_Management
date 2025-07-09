@@ -21,7 +21,7 @@ const get_teams_by_guide = (guide_reg_num) => {
 
 const create_review_schedule = (reviewData) => {
     const query = `
-        INSERT INTO review_schedules (
+        INSERT INTO guide_review_schedules (
             review_id,
             guide_reg_num,
             team_id,
@@ -56,7 +56,7 @@ const create_review_schedule = (reviewData) => {
 
 const get_schedules_by_guide = (guide_reg_num) => {
     const query = `
-        SELECT * FROM review_schedules 
+        SELECT * FROM guide_review_schedules 
         WHERE guide_reg_num = ?
         ORDER BY date, time
     `;

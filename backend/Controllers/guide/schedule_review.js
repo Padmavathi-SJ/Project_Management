@@ -2,7 +2,7 @@ const {
     get_teams_by_guide, 
     create_review_schedule, 
     get_schedules_by_guide 
-} = require('../../Models/guide_routes/schedule_review.js');
+} = require('../../Models/guide/schedule_review.js');
 const { v4: uuidv4 } = require('uuid');
 
 const fetch_teams = async (req, res) => {
