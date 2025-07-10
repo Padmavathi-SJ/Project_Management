@@ -48,6 +48,7 @@ import PrivateRoute from "./components/Login/PrivateRoute";
 import PublicRoute from "./components/Login/PublicRoute";
 
 import ReviewScheduling from './components/guide/Review_Scheduling';
+import ReviewProgress from './components/guide/Review_Progress';
 /*
 import GuideScheduleReview from './components/guide/schedule_review';
 import SubExpertScheduleReview from './components/Subject_expert/Schedule_review';
@@ -145,7 +146,7 @@ function App() {
               <Route index element={<Staff_dashboard />} />
               <Route path="queries" element={<Guide_queries />} />
               <Route path="team_progress" element={<Guide_team_progress />} />
-              <Route path="review_progress" element={<Review_projects />} />
+              <Route path="review_progress" element={<ReviewProgress />} />
               <Route path="team-details/:teamId" element={<Team_Details />} />
               <Route path="schedule-review" element={<ReviewScheduling />} />
               
