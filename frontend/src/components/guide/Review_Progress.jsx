@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import instance from '../../utils/axiosInstance';
 
 const ReviewProgress = () => {
   const guideRegNum = useSelector((state) => state.userSlice?.reg_num);
-  const [activeTab, setActiveTab] = useState('guide'); // 'guide' or 'subExpert'
+  const [activeTab, setActiveTab] = useState('guide');
   const [guideReviews, setGuideReviews] = useState([]);
   const [subExpertReviews, setSubExpertReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!guideRegNum) {
@@ -23,27 +26,35 @@ const ReviewProgress = () => {
         setError(null);
         
         // Fetch guide reviews
-        const guideResponse = await instance.get(`/guide/${guideRegNum}/schedules`);
-        console.log('Guide API Response:', guideResponse.data);
+        const guideResponse = await instance.get(`/api/guide/${guideRegNum}/schedules`);
         
         if (guideResponse.data.status && Array.isArray(guideResponse.data.schedules)) {
-          setGuideReviews(guideResponse.data.schedules);
+          setGuideReviews(guideResponse.data.schedules.map(review => ({
+            ...review,
+            status: review.status || 'Not completed'
+          })));
         } else {
           throw new Error(guideResponse.data.error || 'Invalid guide response structure');
         }
         
         // Fetch sub-expert reviews
         const subExpertResponse = await instance.get(`/sub-expert/${guideRegNum}/schedules`);
-        console.log('Sub-Expert API Response:', subExpertResponse.data);
         
         if (subExpertResponse.data.status && Array.isArray(subExpertResponse.data.schedules)) {
-          setSubExpertReviews(subExpertResponse.data.schedules);
+          setSubExpertReviews(subExpertResponse.data.schedules.map(review => ({
+            ...review,
+            status: review.status || 'Not completed'
+          })));
         } else {
           throw new Error(subExpertResponse.data.error || 'Invalid sub-expert response structure');
         }
       } catch (err) {
         console.error("Error fetching reviews:", err);
-        setError(err.response?.data?.error || err.message || "Failed to load review schedules");
+        setError(
+  typeof err.response?.data?.error === 'object' 
+    ? err.response.data.error.message 
+    : err.response?.data?.error || err.message || "Failed to load review schedules"
+);
       } finally {
         setLoading(false);
       }
@@ -51,6 +62,48 @@ const ReviewProgress = () => {
 
     fetchAllReviews();
   }, [guideRegNum]);
+
+const handleStatusChange = async (reviewId, newStatus, isGuideReview) => {
+  try {
+    setUpdatingStatus(true);
+    const response = await instance.patch(
+      `/api/${isGuideReview ? 'guide' : 'sub-expert'}/${guideRegNum}/review/${reviewId}/status`,
+      { status: newStatus }
+    );
+    
+    // Update local state
+    if (isGuideReview) {
+      setGuideReviews(prev => prev.map(review => 
+        review.review_id === reviewId ? { ...review, status: newStatus } : review
+      ));
+    } else {
+      setSubExpertReviews(prev => prev.map(review => 
+        review.review_id === reviewId ? { ...review, status: newStatus } : review
+      ));
+    }
+  } catch (err) {
+    console.error("Error updating status:", err);
+    setError(
+      typeof err.response?.data?.error === 'object' 
+        ? err.response.data.error.message 
+        : err.response?.data?.error || err.message || "Failed to update status"
+    );
+  } finally {
+    setUpdatingStatus(false);
+  }
+};
+
+
+  const handleAwardMarks = (review) => {
+    navigate('/award-marks', { 
+      state: { 
+        reviewId: review.review_id,
+        teamId: review.team_id,
+        projectId: review.project_id,
+        reviewType: review.review_type
+      }
+    });
+  };
 
   const formatDateTime = (dateString, timeString) => {
     try {
@@ -75,7 +128,7 @@ const ReviewProgress = () => {
     }
   };
 
-  const renderTable = (reviews) => {
+const renderTable = (reviews, isGuideReview = true) => {
     return (
       <div className="overflow-x-auto">
         <table className="min-w-full bg-white">
@@ -86,7 +139,9 @@ const ReviewProgress = () => {
               <th className="py-3 px-4 border text-left">Type</th>
               <th className="py-3 px-4 border text-left">Scheduled Time</th>
               <th className="py-3 px-4 border text-left">Venue</th>
+              <th className="py-3 px-4 border text-left">Status</th>
               <th className="py-3 px-4 border text-left">Meeting</th>
+              <th className="py-3 px-4 border text-left">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -103,6 +158,17 @@ const ReviewProgress = () => {
                   {formatDateTime(review.date, review.time)}
                 </td>
                 <td className="py-3 px-4 border">{review.venue || 'Not specified'}</td>
+                 <td className="py-3 px-4 border">
+                 <select
+  value={review.status}
+  onChange={(e) => handleStatusChange(review.review_id, e.target.value, isGuideReview)}
+  className="border rounded px-2 py-1 text-sm"
+>
+  <option value="Not completed">Not completed</option>
+  <option value="Completed">Completed</option>
+  <option value="Rescheduled">Rescheduled</option>
+</select>
+                </td>
                 <td className="py-3 px-4 border">
                   {review.meeting_link ? (
                     <a 
@@ -118,6 +184,16 @@ const ReviewProgress = () => {
                     </a>
                   ) : (
                     <span className="text-gray-400">None</span>
+                  )}
+                </td>
+                <td className="py-3 px-4 border">
+                  {review.status === 'Completed' && (
+                    <button
+                      onClick={() => handleAwardMarks(review)}
+                      className="px-3 py-1 bg-green-100 text-green-800 rounded hover:bg-green-200 text-sm"
+                    >
+                      Award Marks
+                    </button>
                   )}
                 </td>
               </tr>
@@ -142,7 +218,7 @@ const ReviewProgress = () => {
       <div className="p-6 max-w-4xl mx-auto bg-white rounded-lg shadow-md">
         <div className="bg-red-50 p-4 rounded border border-red-200">
           <h3 className="text-red-700 font-medium">Error Loading Reviews</h3>
-          <p className="text-red-600 mt-1">{error}</p>
+          <p className="text-red-600 mt-1">{typeof error === 'string' ? error : JSON.stringify(error)}</p>
           <button 
             onClick={() => window.location.reload()}
             className="mt-3 px-4 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200"
@@ -155,7 +231,7 @@ const ReviewProgress = () => {
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto bg-white rounded-lg shadow-md">
+    <div className="p-6 max-w-6xl mx-auto bg-white rounded-lg shadow-md">
       <h1 className="text-2xl font-bold mb-6 text-purple-700">Review Schedules</h1>
       
       <div className="flex border-b mb-4">
@@ -189,7 +265,7 @@ const ReviewProgress = () => {
               <p className="text-blue-800">No guide review schedules found.</p>
             </div>
           ) : (
-            renderTable(guideReviews)
+            renderTable(guideReviews, true)
           )
         ) : (
           subExpertReviews.length === 0 ? (
@@ -197,7 +273,7 @@ const ReviewProgress = () => {
               <p className="text-blue-800">No sub-expert review schedules found.</p>
             </div>
           ) : (
-            renderTable(subExpertReviews)
+            renderTable(subExpertReviews, false)
           )
         )}
       </div>

@@ -14,7 +14,7 @@ const ScheduleReview = ({ onSuccess }) => {
 
   const [formData, setFormData] = useState({
     team_id: '',
-    review_type: 'Phase 1',
+    review_type: 'review-0',
     venue: '',
     date: '',
     time: '',
@@ -31,7 +31,7 @@ const ScheduleReview = ({ onSuccess }) => {
     const fetchTeams = async () => {
       try {
         setLoading(true);
-        const response = await instance.get(`/guide/${guideRegNum}/teams`);
+        const response = await instance.get(`/api/guide/${guideRegNum}/teams`);
         setTeams(response.data.teams);
       } catch (err) {
         setError(err.response?.data?.message || 'Failed to fetch teams');
@@ -60,7 +60,7 @@ const handleSubmit = async (e) => {
 
   try {
     const selectedTeam = teams.find((t) => t.team_id === formData.team_id);
-    const response = await instance.post(`/guide/${guideRegNum}/schedule`, {
+    const response = await instance.post(`/api/guide/${guideRegNum}/schedule`, {
       ...formData,
       project_id: selectedTeam?.project_id || ''
     });
@@ -114,10 +114,10 @@ const handleSubmit = async (e) => {
               className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
               required
             >
-              <option value="Phase 1">Phase 1</option>
-              <option value="Phase 2">Phase 2</option>
-              <option value="Phase 3">Phase 3</option>
-              <option value="Final">Final</option>
+              <option value="Phase 1">review-0</option>
+              <option value="Phase 2">review-1</option>
+              <option value="Phase 3">review-2</option>
+            
             </select>
           </div>
           <div>
