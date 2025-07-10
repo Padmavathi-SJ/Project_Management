@@ -15,8 +15,10 @@ const getProjects = async () => {
     const enrichedProjects = await Promise.all(
       projects.map(async (project) => {
         try {
+          // Handle potential error responses from API
           const teamMetaRes = await instance.get(`/admin/get_team_members/${project.team_id}`);
-          const teamMeta = teamMetaRes.data[0];
+          const teamMeta = Array.isArray(teamMetaRes.data) ? teamMetaRes.data[0] : null;
+         
           const guideReg = teamMeta?.guide_reg_num;
           const subExpertReg = teamMeta?.sub_expert_reg_num;
 
@@ -26,7 +28,9 @@ const getProjects = async () => {
           if (guideReg) {
             try {
               const guideRes = await instance.get(`/admin/get_name/${guideReg}`);
-              guideName = `${guideRes.data[0]?.name || 'Unknown'} (${guideReg})`;
+              guideName = guideRes.data && guideRes.data[0]?.name
+                ? `${guideRes.data[0].name} (${guideReg})`
+                : `Unknown (${guideReg})`;
             } catch (err) {
               console.error(`Failed to fetch guide name for ${guideReg}`);
             }
@@ -35,26 +39,36 @@ const getProjects = async () => {
           if (subExpertReg) {
             try {
               const subExpertRes = await instance.get(`/admin/get_name/${subExpertReg}`);
-              subExpertName = `${subExpertRes.data[0]?.name || 'Unknown'} (${subExpertReg})`;
+              subExpertName = subExpertRes.data && subExpertRes.data[0]?.name
+                ? `${subExpertRes.data[0].name} (${subExpertReg})`
+                : `Unknown (${subExpertReg})`;
             } catch (err) {
               console.error(`Failed to fetch sub expert name for ${subExpertReg}`);
             }
           }
 
-          const teamRes = await instance.get(`/admin/get_teams/${project.team_id}`);
-          const teamMembers = teamRes.data.map(member => {
-            const isLeader = member.from_reg_num === member.to_reg_num;
-            return {
-              ...member,
-              role: isLeader ? 'leader' : 'member'
-            };
-          });
+          // Handle team members response
+          let teamMembers = [];
+          try {
+            const teamRes = await instance.get(`/admin/get_teams/${project.team_id}`);
+            teamMembers = Array.isArray(teamRes.data)
+              ? teamRes.data.map(member => {
+                  const isLeader = member.from_reg_num === member.to_reg_num;
+                  return {
+                    ...member,
+                    role: isLeader ? 'leader' : 'member'
+                  };
+                })
+              : [];
+          } catch (err) {
+            console.error(`Failed to fetch team members for ${project.team_id}`);
+          }
 
-          // ✅ Fetch verified week count
+          // Handle verified week response
           let verifiedWeek = 0;
           try {
             const verifiedWeekRes = await instance.get(`/guide/no_of_weeks_verified/${project.team_id}`);
-            verifiedWeek = verifiedWeekRes.data || 0;
+            verifiedWeek = typeof verifiedWeekRes.data === 'number' ? verifiedWeekRes.data : 0;
           } catch (err) {
             console.error(`Failed to fetch verified week for ${project.team_id}`);
           }
@@ -65,7 +79,7 @@ const getProjects = async () => {
             sub_expert_display: subExpertName,
             team_members: teamMembers,
             verified_week: verifiedWeek,
-            completed_review: 0 // Optional placeholder if you fetch that later
+            completed_review: 0
           };
         } catch (error) {
           console.error(`Error enriching project ${project.project_id}:`, error.message);
@@ -81,11 +95,92 @@ const getProjects = async () => {
       })
     );
 
-    setProjectData(enrichedProjects);
+    setProjectData(enrichedProjects.filter(Boolean)); // Filter out any undefined/null values
   } catch (err) {
     console.error("Error fetching projects:", err.message);
+    setProjectData([]); // Set empty array on error
   }
 };
+
+// const getProjects = async () => {
+//   try {
+//     const res = await instance.get('/admin/get_all_projects');
+//     const projects = res.data;
+
+//     const enrichedProjects = await Promise.all(
+//       projects.map(async (project) => {
+//         try {
+//           const teamMetaRes = await instance.get(`/admin/get_team_members/${project.team_id}`);
+//           const teamMeta = teamMetaRes.data[0];
+//           const guideReg = teamMeta?.guide_reg_num;
+//           const subExpertReg = teamMeta?.sub_expert_reg_num;
+
+//           let guideName = 'N/A';
+//           let subExpertName = 'N/A';
+
+//           if (guideReg) {
+//             try {
+//               const guideRes = await instance.get(`/admin/get_name/${guideReg}`);
+//               guideName = `${guideRes.data[0]?.name || 'Unknown'} (${guideReg})`;
+//             } catch (err) {
+//               console.error(`Failed to fetch guide name for ${guideReg}`);
+//             }
+//           }
+
+//           if (subExpertReg) {
+//             try {
+//               const subExpertRes = await instance.get(`/admin/get_name/${subExpertReg}`);
+//               subExpertName = `${subExpertRes.data[0]?.name || 'Unknown'} (${subExpertReg})`;
+//             } catch (err) {
+//               console.error(`Failed to fetch sub expert name for ${subExpertReg}`);
+//             }
+//           }
+
+//           const teamRes = await instance.get(`/admin/get_teams/${project.team_id}`);
+//           const teamMembers = teamRes.data.map(member => {
+//             const isLeader = member.from_reg_num === member.to_reg_num;
+//             return {
+//               ...member,
+//               role: isLeader ? 'leader' : 'member'
+//             };
+//           });
+
+//           // ✅ Fetch verified week count
+//           let verifiedWeek = 0;
+//           try {
+//             const verifiedWeekRes = await instance.get(`/guide/no_of_weeks_verified/${project.team_id}`);
+//             verifiedWeek = verifiedWeekRes.data || 0;
+//           } catch (err) {
+//             console.error(`Failed to fetch verified week for ${project.team_id}`);
+//           }
+
+//           return {
+//             ...project,
+//             guide_display: guideName,
+//             sub_expert_display: subExpertName,
+//             team_members: teamMembers,
+//             verified_week: verifiedWeek,
+//             completed_review: 0 // Optional placeholder if you fetch that later
+//           };
+//         } catch (error) {
+//           console.error(`Error enriching project ${project.project_id}:`, error.message);
+//           return {
+//             ...project,
+//             team_members: [],
+//             guide_display: 'N/A',
+//             sub_expert_display: 'N/A',
+//             verified_week: 0,
+//             completed_review: 0
+//           };
+//         }
+//       })
+//     );
+
+//     setProjectData(enrichedProjects);
+//   } catch (err) {
+//     console.error("Error fetching projects:", err.message);
+//   }
+// };
 
 
   const handleViewProject = (project) => {
@@ -112,7 +207,7 @@ const getProjects = async () => {
     const leader = selectedProject.team_members?.find(member => member.role === 'leader');
 
     console.log();
-    
+   
     return (
       <div className="min-h-screen p-6">
         <div className="max-w-6xl mx-auto">
@@ -167,25 +262,30 @@ const getProjects = async () => {
                   <h3 className="bg-white text-lg font-semibold text-gray-800">Team Members</h3>
                 </div>
                 <div className="bg-white space-y-3">
-                  {selectedProject.team_members?.map((member, index) => {
-  console.log(member); // ✅ Correct place to log each member
-
+{selectedProject.team_members?.map((member, index) => {
+  // Ensure member is an object with the expected properties
+  if (!member || typeof member !== 'object') return null;
+ 
   return (
     <div key={index} className="bg-gray-50 flex items-center justify-between p-4 border border-gray-200 rounded-lg">
       <div className="bg-gray-50 flex-1">
         <div className="bg-gray-50 flex items-center gap-2 mb-1">
-          <span className="bg-gray-50 font-medium text-gray-800">{member.name}</span>
+          <span className="bg-gray-50 font-medium text-gray-800">
+            {member.name || 'Unknown Member'}
+          </span>
           {member.role === 'leader' && (
             <span className="bg-gray-300 text-gray-700 px-2 py-1 rounded text-xs font-medium">
               Team Leader
             </span>
           )}
         </div>
-        <p className="bg-gray-50 text-sm text-gray-600">{member.emailId}</p>
+        <p className="bg-gray-50 text-sm text-gray-600">
+          {member.emailId || 'No email'}
+        </p>
       </div>
       <div className="bg-gray-50 text-right">
         <span className="bg-gray-50 text-gray-700 px-3 py-1 rounded text-sm font-medium">
-          {member.reg_num}
+          {member.reg_num || 'No ID'}
         </span>
       </div>
     </div>
