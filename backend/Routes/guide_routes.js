@@ -3,7 +3,8 @@ const router = express.Router();
 const {
     fetch_teams,
     schedule_review,
-    fetch_schedules
+    fetch_schedules,
+    updateGuideReviewStatus
 } = require('../Controllers/guide/schedule_review.js');
 
 // Get all teams for a guide
@@ -14,5 +15,8 @@ router.post('/:guide_reg_num/schedule', schedule_review);
 
 // Get all scheduled reviews for a guide
 router.get('/:guide_reg_num/schedules', fetch_schedules);
+
+// Update review status - changed route pattern
+router.patch('/:guide_reg_num/review/:reviewId/status', updateGuideReviewStatus);
 
 module.exports = router;

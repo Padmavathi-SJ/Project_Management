@@ -1,7 +1,9 @@
 const { 
     get_teams_by_guide, 
     create_review_schedule, 
-    get_schedules_by_guide 
+    get_schedules_by_guide,
+    updateReviewStatus,
+    getReviewById
 } = require('../../Models/guide/schedule_review.js');
 const { v4: uuidv4 } = require('uuid');
 
@@ -78,8 +80,42 @@ const fetch_schedules = async (req, res) => {
     }
 };
 
+
+const updateGuideReviewStatus = async (req, res) => {
+  try {
+    const { reviewId, guide_reg_num } = req.params;
+    const { status } = req.body;
+    
+    // Only validate that the status is one of the allowed values
+    if (!['Completed', 'Not completed', 'Rescheduled'].includes(status)) {
+      return res.status(400).json({
+        status: false,
+        error: 'Invalid status value'
+      });
+    }
+
+    await updateReviewStatus(reviewId, guide_reg_num, status);
+    
+    const updatedReview = await getReviewById(reviewId, guide_reg_num);
+    
+    res.json({
+      status: true,
+      message: 'Review status updated successfully',
+      review: updatedReview
+    });
+  } catch (error) {
+    console.error('Error updating review status:', error);
+    res.status(500).json({
+      status: false,
+      error: error.message || 'Failed to update review status'
+    });
+  }
+};
+
+
 module.exports = {
     fetch_teams,
     schedule_review,
-    fetch_schedules
+    fetch_schedules,
+    updateGuideReviewStatus
 };

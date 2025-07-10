@@ -68,8 +68,47 @@ const get_schedules_by_guide = (guide_reg_num) => {
     });
 };
 
+
+
+const updateReviewStatus = (reviewId, guideRegNum, newStatus) => {
+  return new Promise((resolve, reject) => {
+    const query = `
+      UPDATE guide_review_schedules 
+      SET status = ? 
+      WHERE review_id = ? AND guide_reg_num = ?
+    `;
+    db.query(query, [newStatus, reviewId, guideRegNum], (err, result) => {
+      if (err) return reject(err);
+      if (result.affectedRows === 0) {
+        return reject(new Error('No review found with the given ID and guide registration number'));
+      }
+      resolve(result);
+    });
+  });
+};
+
+const getReviewById = (reviewId, guideRegNum) => {
+  return new Promise((resolve, reject) => {
+    const query = `
+      SELECT * FROM guide_review_schedules 
+      WHERE review_id = ? AND guide_reg_num = ?
+    `;
+    db.query(query, [reviewId, guideRegNum], (err, result) => {
+      if (err) return reject(err);
+      if (result.length === 0) {
+        return reject(new Error('Review not found'));
+      }
+      resolve(result[0]);
+    });
+  });
+};
+
+
+
 module.exports = {
     get_teams_by_guide,
     create_review_schedule,
-    get_schedules_by_guide
+    get_schedules_by_guide,
+    updateReviewStatus,
+  getReviewById
 };

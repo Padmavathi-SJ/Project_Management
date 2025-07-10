@@ -255,7 +255,7 @@ app.use("/", uploadRouter);
 app.use("/", mentorRoute);
 app.use("/", generalRoute);
 
-app.use("/guide", guideRoutes);
+app.use("/api/guide", guideRoutes);
 app.use("/", sub_expertRoutes);
 
 
