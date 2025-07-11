@@ -106,105 +106,87 @@ router.patch("/sub_expert/accept_reject/:status/:team_id/:semester/:my_id", user
 });
 
 // sends request to expert
-
 router.post("/sub_expert/sent_request_to_expert/:semester", userAuth, (req, res, next) => {
-  try {
-    const { semester } = req.params;
-    const { from_team_id, project_id, project_name, to_expert_reg_num } = req.body;
+  const { semester } = req.params;
+  const { from_team_id, project_id, project_name, to_expert_reg_num } = req.body;
 
-    if (!from_team_id || !project_id || !project_name || !Array.isArray(to_expert_reg_num) || to_expert_reg_num.length === 0 || !semester || (semester != 5 && semester != 7)) {
-      return res.status(400).json({ message: "Some fields are required" });
-    }
+  const errors = [];
 
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-      },
-    });
-
-    let validExperts = [];
-    let checked = 0;
-
-    to_expert_reg_num.forEach((expertRegNum, idx) => {
-      let checkSql = "SELECT team_semester FROM sub_expert_requests WHERE to_expert_reg_num = ? AND status = 'accept'";
-      db.query(checkSql, [expertRegNum], (error, results) => {
-        if (error) return next(error);
-
-        let s5 = 0, s7 = 0;
-        for (let r of results) {
-          if (r.team_semester === 5) s5++;
-          else if (r.team_semester === 7) s7++;
-        }
-
-        if ((semester == 5 && s5 < 3) || (semester == 7 && s7 < 3)) {
-          validExperts.push(expertRegNum);
-        }
-
-        checked++; // runs on last index
-        if (checked === to_expert_reg_num.length) {
-          // All guides checked, now proceed to insert requests
-          if (validExperts.length === 0) {
-            return res.status(400).json({ message: "No eligible guides found" });
-          }
-
-          let completed = 0;
-          let errors = false;
-
-          validExperts.forEach((expert) => {
-            const insertSql = "INSERT INTO sub_expert_requests (from_team_id, project_id, project_name, to_expert_reg_num,team_semester) VALUES (?, ?, ?, ?, ?  )";
-            db.query(insertSql, [from_team_id, project_id, project_name, expert, semester], (error, insertResult) => {
-              if (error || insertResult.affectedRows === 0) {
-                console.error("Insert failed for:", expert, error || "No rows inserted");
-                errors = true;
-              }
-
-              let emailQuery = "SELECT emailId FROM users WHERE reg_num = ? AND role = 'staff'";
-              db.query(emailQuery, [expert], (error, emailResult) => {
-                if (error || emailResult.length === 0) {
-                  console.error("Email not found for:", expert);
-                  errors = true;
-                  checkComplete();
-                } else {
-                  const mailOptions = {
-                    from: process.env.EMAIL_USER,
-                    to: emailResult[0].emailId,
-                    subject: 'Request To Accept Invite',
-                    text: `Dear Expert,\n\n${from_team_id} team has requested you to be their sub_expert. Please login to the system to accept or reject the request.\n\nThank you.`,
-                  };
-
-                  transporter.sendMail(mailOptions, (err, info) => {
-                    if (err) {
-                      console.error("Email failed:", err);
-                      errors = true;
-                    }
-                    checkComplete();
-                  });
-                }
-              });
-
-              function checkComplete() {
-                completed++;
-                if (completed === validExperts.length) {
-                  if (errors) {
-                    return res.status(500).json({ message: "Some requests or emails failed." });
-                  } else {
-                    return res.send("Requests sent successfully to all eligible expert");
-                  }
-                }
-              }
-            });
-          });
-        }
-      });
-    });
-  } catch (error) {
-    next(error);
+  if (!from_team_id?.trim()) errors.push("from_team_id is required");
+  if (!project_id?.trim()) errors.push("project_id is required");
+  if (!project_name?.trim()) errors.push("project_name is required");
+  if (!Array.isArray(to_expert_reg_num) || to_expert_reg_num.length === 0 || to_expert_reg_num.length > 4) {
+    errors.push("Please select 1-4 experts");
   }
+  
+  const sem = Number(semester);
+  if (![5, 6, 7].includes(sem)) {
+    errors.push("semester must be 5, 6, or 7");
+  }
+
+  if (errors.length > 0) {
+    return res.status(400).json({ message: "Validation failed", errors });
+  }
+
+  const validExperts = [];
+  let checked = 0;
+
+  to_expert_reg_num.forEach((expertRegNum) => {
+    const checkSql = `
+      SELECT team_semester 
+      FROM sub_expert_requests 
+      WHERE to_expert_reg_num = ? AND status = 'accept'
+    `;
+    
+    db.query(checkSql, [expertRegNum], (err, results) => {
+      if (err) return next(err);
+
+      const semCount = results.filter(r => r.team_semester === sem).length;
+      if (semCount < 3) {
+        validExperts.push(expertRegNum);
+      }
+
+      checked++;
+      if (checked === to_expert_reg_num.length) {
+        if (validExperts.length === 0) {
+          return res.status(400).json({ message: "No eligible experts found" });
+        }
+
+        let completed = 0;
+        let hasError = false;
+
+        validExperts.forEach((expert) => {
+          const insertSql = `
+            INSERT INTO sub_expert_requests 
+            (from_team_id, project_id, to_expert_reg_num, status, project_name, team_semester)
+            VALUES (?, ?, ?, 'interested', ?, ?)
+          `;
+
+          db.query(insertSql, 
+            [from_team_id, project_id, expert, project_name, semester], 
+            (insertErr, result) => {
+              if (insertErr) {
+                hasError = true;
+                console.error("DB Insert Error:", insertErr);
+              }
+              completed++;
+              
+              if (completed === validExperts.length) {
+                if (hasError) {
+                  return res.status(500).json({ message: "Some expert requests failed" });
+                }
+                return res.status(200).json({ 
+                  message: "Expert requests sent successfully",
+                  count: validExperts.length
+                });
+              }
+            }
+          );
+        });
+      }
+    });
+  });
 });
-
-
 // fetches team details, i am acting as the subject expert
 
 router.get("/sub_expert/fetch_teams/:expert_id", (req, res, next) => {

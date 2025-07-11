@@ -122,101 +122,73 @@ router.patch("/guide/accept_reject/:status/:team_id/:semester/:my_id", userAuth,
 
 // sends request to guide
 router.post("/guide/sent_request_to_guide/:semester", userAuth, (req, res, next) => {
-  try {
-    const { semester } = req.params;
-    const { from_team_id, project_id, project_name, to_guide_reg_num } = req.body;
+  const { semester } = req.params;
+  const { from_team_id, project_id, project_name, to_guide_reg_num } = req.body;
 
-    if (!from_team_id || !project_id || !project_name || !Array.isArray(to_guide_reg_num) || to_guide_reg_num.length === 0 || !semester || (semester != 5 && semester != 7)) {
-      return res.status(400).json({ message: "Some fields are required" });
-    }
+const errors = [];
 
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-      },
-    });
+if (!from_team_id?.trim()) errors.push("from_team_id is required");
+if (!project_id?.trim()) errors.push("project_id is required");
+if (!project_name?.trim()) errors.push("project_name is required");
+if (!Array.isArray(to_guide_reg_num) || to_guide_reg_num.length === 0) {
+  errors.push("At least one guide must be selected");
+}
+const sem = Number(semester);
+if (![5, 6, 7].includes(sem)) {
+  errors.push("semester must be 5, 6, or 7");
+}
 
-    let validGuides = [];
-    let checked = 0;
 
-    to_guide_reg_num.forEach((guideRegNum, idx) => {
-      let checkSql = "SELECT team_semester FROM guide_requests WHERE to_guide_reg_num = ? AND status = 'accept'";
-      db.query(checkSql, [guideRegNum], (error, results) => {
-        if (error) return next(error);
+  const validGuides = [];
+  let checked = 0;
 
-        let s5 = 0, s7 = 0;
-        for (let r of results) {
-          if (r.team_semester === 5) s5++;
-          else if (r.team_semester === 7) s7++;
+  to_guide_reg_num.forEach((guideRegNum) => {
+    const checkSql = "SELECT team_semester FROM guide_requests WHERE to_guide_reg_num = ? AND status = 'accept'";
+    db.query(checkSql, [guideRegNum], (err, results) => {
+      if (err) return next(err);
+
+      const semCount = results.filter(r => r.team_semester === Number(semester)).length;
+      if (semCount < 3) {
+        validGuides.push(guideRegNum);
+      }
+
+      checked++;
+      if (checked === to_guide_reg_num.length) {
+        if (validGuides.length === 0) {
+          return res.status(400).json({ message: "No eligible guides found" });
         }
 
-        if ((semester == 5 && s5 < 3) || (semester == 7 && s7 < 3)) {
-          validGuides.push(guideRegNum);
-        }
+        let completed = 0;
+        let hasError = false;
 
-        checked++; // runs on last index
-        if (checked === to_guide_reg_num.length) {
-          // All guides checked, now proceed to insert requests
-          if (validGuides.length === 0) {
-            return res.status(400).json({ message: "No eligible guides found" });
-          }
+        validGuides.forEach((guide) => {
+          const insertSql = `
+            INSERT INTO guide_requests 
+            (from_team_id, project_id, to_guide_reg_num, status, project_name, team_semester)
+            VALUES (?, ?, ?, 'interested', ?, ?)
+          `;
 
-          let completed = 0;
-          let errors = false;
+          db.query(insertSql, [from_team_id, project_id, guide, project_name, semester], (insertErr) => {
+            if (insertErr) {
+              hasError = true;
+              console.error("DB Insert Error:", insertErr);
+            }
 
-          validGuides.forEach((guide) => {
-            const insertSql = "INSERT INTO guide_requests (from_team_id, project_id, project_name, to_guide_reg_num,team_semester) VALUES (?, ?, ?, ?, ?)";
-            db.query(insertSql, [from_team_id, project_id, project_name, guide, semester], (error, insertResult) => {
-              if (error || insertResult.affectedRows === 0) {
-                console.error("Insert failed for:", guide, error || "No rows inserted");
-                errors = true;
+            completed++;
+            if (completed === validGuides.length) {
+              if (hasError) {
+                return res.status(500).json({ message: "Some guide requests failed to save" });
+              } else {
+                return res.status(200).json({ message: "Guide requests sent successfully" });
               }
-
-              let emailQuery = "SELECT emailId FROM users WHERE reg_num = ? AND role = 'staff'";
-              db.query(emailQuery, [guide], (error, emailResult) => {
-                if (error || emailResult.length === 0) {
-                  console.error("Email not found for:", guide);
-                  errors = true;
-                  checkComplete();
-                } else {
-                  const mailOptions = {
-                    from: process.env.EMAIL_USER,
-                    to: emailResult[0].emailId,
-                    subject: 'Request To Accept Invite',
-                    text: `Dear Guide,\n\n${from_team_id} team has requested you to be their guide. Please login to the system to accept or reject the request.\n\nThank you.`,
-                  };
-
-                  transporter.sendMail(mailOptions, (err, info) => {
-                    if (err) {
-                      console.error("Email failed:", err);
-                      errors = true;
-                    }
-                    checkComplete();
-                  });
-                }
-              });
-
-              function checkComplete() {
-                completed++;
-                if (completed === validGuides.length) {
-                  if (errors) {
-                    return res.status(500).json({ message: "Some requests or emails failed." });
-                  } else {
-                    return res.send("Requests sent successfully to all eligible guides!");
-                  }
-                }
-              }
-            });
+            }
           });
-        }
-      });
+        });
+      }
     });
-  } catch (error) {
-    next(error);
-  }
+  });
 });
+
 
 // conforming review request -> sent by the team, both guide and expert should accept
 router.post("/guide/add_review_details/:request_id/:status/:guide_reg_num/:team_id", userAuth, (req, res, next) => {
