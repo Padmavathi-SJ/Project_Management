@@ -28,6 +28,8 @@ const guideRoutes = require("./Routes/guide_routes");
 const sub_expertRoutes = require('./Routes/sub-expert_routes.js')
 const studentReviewRoutes = require('./Routes/student_routes.js');
 
+const marksRoutes = require('./Routes/review_marks.js');
+
 // Middleware
 app.use(express.json());
 app.use(cookieParser());
@@ -256,6 +258,7 @@ app.use("/", mentorRoute);
 app.use("/", generalRoute);
 
 app.use("/api/guide", guideRoutes);
+app.use("/api/marks", marksRoutes);
 app.use("/", sub_expertRoutes);
 
 
