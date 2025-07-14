@@ -114,9 +114,9 @@ const handleSubmit = async (e) => {
               className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
               required
             >
-              <option value="Phase 1">review-0</option>
-              <option value="Phase 2">review-1</option>
-              <option value="Phase 3">review-2</option>
+             
+              <option value="review-1">review-1</option>
+              <option value="review-2">review-2</option>
             
             </select>
           </div>
