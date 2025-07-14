@@ -49,6 +49,8 @@ import PublicRoute from "./components/Login/PublicRoute";
 
 import ReviewScheduling from './components/guide/Review_Scheduling';
 import ReviewProgress from './components/guide/Review_Progress';
+
+import AwardMarks from './components/guide/AwardMarks';
 /*
 import GuideScheduleReview from './components/guide/schedule_review';
 import SubExpertScheduleReview from './components/Subject_expert/Schedule_review';
@@ -149,6 +151,7 @@ function App() {
               <Route path="review_progress" element={<ReviewProgress />} />
               <Route path="team-details/:teamId" element={<Team_Details />} />
               <Route path="schedule-review" element={<ReviewScheduling />} />
+              <Route path="award-marks/:reg_num/team/:team_id" element={<AwardMarks />} />
               
             </Route>
           </Route>

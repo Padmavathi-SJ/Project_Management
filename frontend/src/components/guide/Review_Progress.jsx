@@ -95,12 +95,13 @@ const handleStatusChange = async (reviewId, newStatus, isGuideReview) => {
 
 
   const handleAwardMarks = (review) => {
-    navigate('/award-marks', { 
+    navigate(`/guide/award-marks/${guideRegNum}/team/${review.team_id}`, { 
       state: { 
         reviewId: review.review_id,
         teamId: review.team_id,
         projectId: review.project_id,
-        reviewType: review.review_type
+        reviewType: review.review_type,
+        semester: review.semester 
       }
     });
   };
