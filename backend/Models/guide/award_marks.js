@@ -6,9 +6,15 @@ const get_team_members = (team_id) => {
         FROM teams
         WHERE team_id = ?
     `;
+    console.log('Executing query:', query, 'with team_id:', team_id);
+    
     return new Promise((resolve, reject) => {
         db.query(query, [team_id], (err, result) => {
-            if(err) return reject(err);
+            if(err) {
+                console.error('Database error:', err);
+                return reject(err);
+            }
+            console.log('Query result:', result);
             return resolve(result);
         });
     });
@@ -18,12 +24,14 @@ const get_team_members = (team_id) => {
 const validateMarks = (marks, reviewType, semester) => {
     const errors = [];
     
-    // Common validations for all reviews
-    if (!marks.attendance || !['present', 'absent'].includes(marks.attendance)) {
-        errors.push('Attendance must be "present" or "absent"');
-    }
+    // const attendanceValue = marks.attendance || (marks.marks && marks.marks.attendance);
 
+    // Common validations for all reviews
+   //  if (!attendanceValue || !['present', 'absent'].includes(attendanceValue)) {
+     //   errors.push('Attendance must be "present" or "absent"');
+    //}
     // Semester 5/6 Validations
+    
     if (semester === '5' || semester === '6') {
         if (reviewType === 'review-1') {
             const fieldRanges = {

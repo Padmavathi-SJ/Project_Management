@@ -11,8 +11,45 @@ const {
     insert_s7_second_review_by_subexpert
 } = require('../../Models/guide/award_marks.js');
 
+
+const getTeamMembers = async (req, res) => {
+    try {
+        const { team_id } = req.params;
+        
+        // Updated validation for string team IDs
+        if (!team_id || typeof team_id !== 'string' || team_id.trim() === '') {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid team ID provided - must be a non-empty string'
+            });
+        }
+
+        // Rest of your code remains the same...
+        const teamMembers = await get_team_members(team_id);
+
+        if (!teamMembers || teamMembers.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Team not found or has no members'
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            data: teamMembers
+        });
+
+    } catch (error) {
+        console.error('Error fetching team members:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Internal server error while fetching team members',
+            error: error.message
+        });
+    }
+};
 const submit_marks = async (req, res) => {
-    const { semester, review_type, user_type, student_reg_num } = req.body;
+    const { semester, review_type, user_type, student_reg_num, attendance } = req.body;
     const { team_id } = req.params;
     const reg_num = req.params.reg_num;
 
@@ -24,6 +61,7 @@ const submit_marks = async (req, res) => {
             user_type,
             team_id,
             student_reg_num,
+            attendance,
             marks: req.body.marks
         };
 
@@ -36,6 +74,15 @@ const submit_marks = async (req, res) => {
                 status: false,
                 error: 'Missing required fields',
                 missing_fields: missingFields
+            });
+        }
+
+        // Validate attendance first
+        if (!['present', 'absent'].includes(attendance)) {
+            return res.status(400).json({
+                status: false,
+                error: 'Invalid attendance value',
+                allowed_values: ['present', 'absent']
             });
         }
 
@@ -81,8 +128,14 @@ const submit_marks = async (req, res) => {
             student_reg_num,
             team_id,
             semester,
+            attendance, // Include attendance from the root of the request
             ...req.body.marks
         };
+
+        // Remove attendance from marks if it exists there to avoid duplication
+        if (studentData.marks && studentData.marks.attendance) {
+            delete studentData.marks.attendance;
+        }
 
         // Set appropriate registration number
         if (user_type === 'guide') {
@@ -149,5 +202,6 @@ const submit_marks = async (req, res) => {
 };
 
 module.exports = {
+  getTeamMembers,
     submit_marks
 };
