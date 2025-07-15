@@ -126,6 +126,7 @@ const submit_marks = async (req, res) => {
         // Prepare student data
         const studentData = {
             student_reg_num,
+            review_type,
             team_id,
             semester,
             attendance, // Include attendance from the root of the request

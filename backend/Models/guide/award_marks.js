@@ -24,14 +24,6 @@ const get_team_members = (team_id) => {
 const validateMarks = (marks, reviewType, semester) => {
     const errors = [];
     
-    // const attendanceValue = marks.attendance || (marks.marks && marks.marks.attendance);
-
-    // Common validations for all reviews
-   //  if (!attendanceValue || !['present', 'absent'].includes(attendanceValue)) {
-     //   errors.push('Attendance must be "present" or "absent"');
-    //}
-    // Semester 5/6 Validations
-    
     if (semester === '5' || semester === '6') {
         if (reviewType === 'review-1') {
             const fieldRanges = {
