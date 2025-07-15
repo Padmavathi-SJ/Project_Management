@@ -11,7 +11,7 @@ function Student_expert_mark_attendence() {
   async function fetchMentoringProjects() {
     try {
       let response = await instance.get(
-        `/sub_expert/fetch_teams/${selector.reg_num}`
+        `/api/sub_expert/fetch_teams/${selector.reg_num}`
       );
 
       if (response.status === 200) {

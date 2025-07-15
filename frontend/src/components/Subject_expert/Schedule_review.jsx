@@ -32,7 +32,7 @@ const ScheduleReview = ({ onSuccess }) => {
       try {
         setLoading(true);
         // Updated endpoint for sub-expert teams
-        const response = await instance.get(`/sub-expert/${subExpertRegNum}/teams`);
+        const response = await instance.get(`/api/sub-expert/${subExpertRegNum}/teams`);
         setTeams(response.data.teams || response.data);
       } catch (err) {
         setError(err.response?.data?.message || 'Failed to fetch teams');
@@ -61,7 +61,7 @@ const ScheduleReview = ({ onSuccess }) => {
 
     try {
       const selectedTeam = teams.find((t) => t.team_id === formData.team_id);
-      const response = await instance.post(`/sub-expert/${subExpertRegNum}/schedule`, {
+      const response = await instance.post(`/api/sub-expert/${subExpertRegNum}/schedule`, {
         ...formData,
         project_id: selectedTeam?.project_id || ''
       });

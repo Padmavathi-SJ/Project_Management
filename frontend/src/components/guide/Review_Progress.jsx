@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import instance from '../../utils/axiosInstance';
 
 const ReviewProgress = () => {
-  const guideRegNum = useSelector((state) => state.userSlice?.reg_num);
+  const userRegNum = useSelector((state) => state.userSlice?.reg_num);
   const [activeTab, setActiveTab] = useState('guide');
   const [guideReviews, setGuideReviews] = useState([]);
   const [subExpertReviews, setSubExpertReviews] = useState([]);
@@ -14,7 +14,7 @@ const ReviewProgress = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!guideRegNum) {
+    if (!userRegNum) {
       setError('Registration number not found');
       setLoading(false);
       return;
@@ -25,77 +25,68 @@ const ReviewProgress = () => {
         setLoading(true);
         setError(null);
         
-        // Fetch guide reviews
-        const guideResponse = await instance.get(`/api/guide/${guideRegNum}/schedules`);
-        
-        if (guideResponse.data.status && Array.isArray(guideResponse.data.schedules)) {
-          setGuideReviews(guideResponse.data.schedules.map(review => ({
+        // Fetch both guide and sub-expert reviews
+        const [guideResponse, subExpertResponse] = await Promise.all([
+          instance.get(`/api/guide/${userRegNum}/schedules`),
+          instance.get(`/api/sub-expert/${userRegNum}/schedules`)
+        ]);
+
+        console.log('Guide schedules:', guideResponse.data);
+        console.log('Sub-expert schedules:', subExpertResponse.data);
+
+        if (guideResponse.data.status) {
+          setGuideReviews(guideResponse.data.schedules?.map(review => ({
             ...review,
             status: review.status || 'Not completed'
-          })));
-        } else {
-          throw new Error(guideResponse.data.error || 'Invalid guide response structure');
+          })) || []);
         }
-        
-        // Fetch sub-expert reviews
-        const subExpertResponse = await instance.get(`/sub-expert/${guideRegNum}/schedules`);
-        
-        if (subExpertResponse.data.status && Array.isArray(subExpertResponse.data.schedules)) {
-          setSubExpertReviews(subExpertResponse.data.schedules.map(review => ({
+
+        if (subExpertResponse.data.status) {
+          setSubExpertReviews(subExpertResponse.data.schedules?.map(review => ({
             ...review,
             status: review.status || 'Not completed'
-          })));
-        } else {
-          throw new Error(subExpertResponse.data.error || 'Invalid sub-expert response structure');
+          })) || []);
         }
       } catch (err) {
         console.error("Error fetching reviews:", err);
-        setError(
-  typeof err.response?.data?.error === 'object' 
-    ? err.response.data.error.message 
-    : err.response?.data?.error || err.message || "Failed to load review schedules"
-);
+        setError(err.response?.data?.error || err.message || "Failed to load review schedules");
       } finally {
         setLoading(false);
       }
     };
 
     fetchAllReviews();
-  }, [guideRegNum]);
+  }, [userRegNum]);
 
-const handleStatusChange = async (reviewId, newStatus, isGuideReview) => {
-  try {
-    setUpdatingStatus(true);
-    const response = await instance.patch(
-      `/api/${isGuideReview ? 'guide' : 'sub-expert'}/${guideRegNum}/review/${reviewId}/status`,
-      { status: newStatus }
-    );
-    
-    // Update local state
-    if (isGuideReview) {
-      setGuideReviews(prev => prev.map(review => 
-        review.review_id === reviewId ? { ...review, status: newStatus } : review
-      ));
-    } else {
-      setSubExpertReviews(prev => prev.map(review => 
-        review.review_id === reviewId ? { ...review, status: newStatus } : review
-      ));
+  const handleStatusChange = async (reviewId, newStatus, isGuideReview) => {
+    try {
+      setUpdatingStatus(true);
+      
+      const endpoint = isGuideReview
+        ? `/api/guide/${userRegNum}/review/${reviewId}/status`
+        : `/api/sub-expert/${userRegNum}/review/${reviewId}/status`;
+
+      await instance.patch(endpoint, { status: newStatus });
+      
+      if (isGuideReview) {
+        setGuideReviews(prev => prev.map(review => 
+          review.review_id === reviewId ? { ...review, status: newStatus } : review
+        ));
+      } else {
+        setSubExpertReviews(prev => prev.map(review => 
+          review.review_id === reviewId ? { ...review, status: newStatus } : review
+        ));
+      }
+    } catch (err) {
+      console.error("Error updating status:", err);
+      setError(err.response?.data?.error || err.message || "Failed to update status");
+    } finally {
+      setUpdatingStatus(false);
     }
-  } catch (err) {
-    console.error("Error updating status:", err);
-    setError(
-      typeof err.response?.data?.error === 'object' 
-        ? err.response.data.error.message 
-        : err.response?.data?.error || err.message || "Failed to update status"
-    );
-  } finally {
-    setUpdatingStatus(false);
-  }
-};
-
+  };
 
   const handleAwardMarks = (review) => {
-    navigate(`/guide/award-marks/${guideRegNum}/team/${review.team_id}`, { 
+    navigate(`/guide/award-marks/${userRegNum}/team/${review.team_id}`, {
       state: { 
         reviewId: review.review_id,
         teamId: review.team_id,
@@ -109,13 +100,10 @@ const handleStatusChange = async (reviewId, newStatus, isGuideReview) => {
   const formatDateTime = (dateString, timeString) => {
     try {
       if (!dateString || !timeString) return 'Not scheduled';
-      
       const date = new Date(dateString);
       if (isNaN(date.getTime())) return 'Invalid date';
-      
       const [hours, minutes, seconds] = timeString.split(':').map(Number);
       date.setHours(hours, minutes, seconds || 0);
-      
       return date.toLocaleString('en-US', {
         year: 'numeric',
         month: 'short',
@@ -129,7 +117,7 @@ const handleStatusChange = async (reviewId, newStatus, isGuideReview) => {
     }
   };
 
-const renderTable = (reviews, isGuideReview = true) => {
+  const renderTable = (reviews, isGuideReview = true) => {
     return (
       <div className="overflow-x-auto">
         <table className="min-w-full bg-white">
@@ -159,25 +147,22 @@ const renderTable = (reviews, isGuideReview = true) => {
                   {formatDateTime(review.date, review.time)}
                 </td>
                 <td className="py-3 px-4 border">{review.venue || 'Not specified'}</td>
-                 <td className="py-3 px-4 border">
-                 <select
-  value={review.status}
-  onChange={(e) => handleStatusChange(review.review_id, e.target.value, isGuideReview)}
-  className="border rounded px-2 py-1 text-sm"
->
-  <option value="Not completed">Not completed</option>
-  <option value="Completed">Completed</option>
-  <option value="Rescheduled">Rescheduled</option>
-</select>
+                <td className="py-3 px-4 border">
+                  <select
+                    value={review.status}
+                    onChange={(e) => handleStatusChange(review.review_id, e.target.value, isGuideReview)}
+                    className="border rounded px-2 py-1 text-sm"
+                    disabled={updatingStatus}
+                  >
+                    <option value="Not completed">Not completed</option>
+                    <option value="Completed">Completed</option>
+                    <option value="Rescheduled">Rescheduled</option>
+                  </select>
                 </td>
                 <td className="py-3 px-4 border">
                   {review.meeting_link ? (
-                    <a 
-                      href={review.meeting_link} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-purple-600 hover:underline flex items-center"
-                    >
+                    <a href={review.meeting_link} target="_blank" rel="noopener noreferrer"
+                      className="text-purple-600 hover:underline flex items-center">
                       <span>Join</span>
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />

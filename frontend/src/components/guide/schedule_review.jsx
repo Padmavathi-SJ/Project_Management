@@ -14,7 +14,7 @@ const ScheduleReview = ({ onSuccess }) => {
 
   const [formData, setFormData] = useState({
     team_id: '',
-    review_type: 'review-0',
+    review_type: 'review-1',
     venue: '',
     date: '',
     time: '',
