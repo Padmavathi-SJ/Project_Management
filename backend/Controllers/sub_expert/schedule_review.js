@@ -26,6 +26,7 @@ const schedule_review = async (req, res) => {
     const {
         team_id,
         project_id,
+        semester,
         review_type,
         venue,
         date,
@@ -40,6 +41,7 @@ const schedule_review = async (req, res) => {
         sub_expert_reg_num,
         team_id,
         project_id,
+        semester,
         review_type,
         venue,
         date,

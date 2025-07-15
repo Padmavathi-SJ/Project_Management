@@ -20,18 +20,28 @@ const get_teams_by_guide = (guide_reg_num) => {
 };
 
 const create_review_schedule = (reviewData) => {
+  //validate semester
+  if (!['5', '6', '7', '8'].includes(reviewData.semester)) {
+    throw new Error('Invalid semester value');
+  }
+
+  //validate review type
+  if(!['review-1', 'review-2'].includes(reviewData.review_type)) {
+    throw new Error('Invalid ewview type');
+  }
     const query = `
         INSERT INTO guide_review_schedules (
             review_id,
             guide_reg_num,
             team_id,
             project_id,
+            semester,
             review_type,
             venue,
             date,
             time,
             meeting_link
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     
     const values = [
@@ -39,6 +49,7 @@ const create_review_schedule = (reviewData) => {
         reviewData.guide_reg_num,
         reviewData.team_id,
         reviewData.project_id,
+        reviewData.semester,
         reviewData.review_type,
         reviewData.venue,
         reviewData.date,

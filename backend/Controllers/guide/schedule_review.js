@@ -26,12 +26,40 @@ const schedule_review = async (req, res) => {
     const {
         team_id,
         project_id,
+        semester,
         review_type,
         venue,
         date,
         time,
         meeting_link
     } = req.body;
+
+     // Validate required fields
+    const requiredFields = ['team_id', 'project_id', 'semester', 'review_type', 'venue', 'date', 'time'];
+    const missingFields = requiredFields.filter(field => !req.body[field]);
+
+    if (missingFields.length > 0) {
+        return res.status(400).json({
+            status: false,
+            error: `Missing required fields: ${missingFields.join(', ')}`
+        });
+    }
+
+    // Validate semester
+    if (!['5', '6', '7', '8'].includes(semester)) {
+        return res.status(400).json({
+            status: false,
+            error: 'Invalid semester value. Must be 5, 6, 7, or 8'
+        });
+    }
+
+    // Validate review type
+    if (!['review-1', 'review-2'].includes(review_type)) {
+        return res.status(400).json({
+            status: false,
+            error: 'Invalid review type. Must be review-1 or review-2'
+        });
+    }
 
     const review_id = `REV-${uuidv4().substring(0, 8)}`;
     
@@ -40,6 +68,7 @@ const schedule_review = async (req, res) => {
         guide_reg_num,
         team_id,
         project_id,
+        semester,
         review_type,
         venue,
         date,
