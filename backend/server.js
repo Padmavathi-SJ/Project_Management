@@ -259,7 +259,7 @@ app.use("/", generalRoute);
 
 app.use("/api/guide", guideRoutes);
 app.use("/api/marks", marksRoutes);
-app.use("/", sub_expertRoutes);
+app.use("/api/sub-expert", sub_expertRoutes);
 
 
 // Serve static files

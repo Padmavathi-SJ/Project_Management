@@ -68,8 +68,44 @@ const get_schedules_by_sub_expert = (sub_expert_reg_num) => {
     });
 };
 
+const updateReviewStatus = (reviewId, subExpertRegNum, newStatus) => {
+    return new Promise((resolve, reject) => {
+        const query = `
+        update sub_expert_review_schedules
+        set status = ?
+        where review_id = ? and sub_expert_reg_num = ?
+        `;
+        db.query(query, [newStatus, reviewId, subExpertRegNum], (err, result) => {
+            if(err) return reject(err);
+            if(result.affectedRows === 0) {
+                return reject(new Error('No review found with the given ID and sub-expert registration number'));
+            }
+            resolve(result);
+        })
+    })
+}
+
+
+const getReviewById = (reviewId, subExpertRegNum) => {
+  return new Promise((resolve, reject) => {
+    const query = `
+      SELECT * FROM sub_expert_review_schedules 
+      WHERE review_id = ? AND sub_expert_reg_num = ?
+    `;
+    db.query(query, [reviewId, subExpertRegNum], (err, result) => {
+      if (err) return reject(err);
+      if (result.length === 0) {
+        return reject(new Error('Review not found'));
+      }
+      resolve(result[0]);
+    });
+  });
+};
+
 module.exports = {
     get_teams_by_sub_expert,
     create_sub_expert_review_schedule,
-    get_schedules_by_sub_expert
+    get_schedules_by_sub_expert,
+    updateReviewStatus,
+    getReviewById
 };
