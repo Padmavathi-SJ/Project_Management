@@ -14,7 +14,7 @@ const ScheduleReview = ({ onSuccess }) => {
 
   const [formData, setFormData] = useState({
     team_id: '',
-    review_type: 'Phase 1',
+    review_type: 'review-1',
     venue: '',
     date: '',
     time: '',
@@ -112,10 +112,9 @@ const ScheduleReview = ({ onSuccess }) => {
               className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
               required
             >
-              <option value="Phase 1">Phase 1</option>
-              <option value="Phase 2">Phase 2</option>
-              <option value="Phase 3">Phase 3</option>
-              <option value="Final">Final</option>
+              <option value="review-1">review-1</option>
+              <option value="review-2">review-2</option>
+              
             </select>
           </div>
           <div>
