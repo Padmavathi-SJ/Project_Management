@@ -5,7 +5,6 @@ import { useSelector } from 'react-redux';
 
 const ScheduleReview = ({ onSuccess }) => {
   const navigate = useNavigate();
-  // Consistent way to get guide reg num as in Team_Details
   const guideRegNum = useSelector((state) => state.userSlice?.reg_num);
 
   const [teams, setTeams] = useState([]);
@@ -14,6 +13,7 @@ const ScheduleReview = ({ onSuccess }) => {
 
   const [formData, setFormData] = useState({
     team_id: '',
+    semester: '5', // Default to semester 5
     review_type: 'review-1',
     venue: '',
     date: '',
@@ -51,34 +51,27 @@ const ScheduleReview = ({ onSuccess }) => {
     }));
   };
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  if (!guideRegNum) {
-    alert('Guide registration number not found');
-    return;
-  }
-
-  try {
-    const selectedTeam = teams.find((t) => t.team_id === formData.team_id);
-    const response = await instance.post(`/api/guide/${guideRegNum}/schedule`, {
-      ...formData,
-      project_id: selectedTeam?.project_id || ''
-    });
-
-    alert(response.data.message || 'Review scheduled successfully!');
-
-    // ✅ Trigger callback if provided
-    if (onSuccess) {
-      onSuccess();
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!guideRegNum) {
+      alert('Guide registration number not found');
+      return;
     }
 
-    // ✅ Navigate to the /schedule-review route
-    navigate('/guide/schedule-review');
-  } catch (err) {
-    alert(err.response?.data?.message || 'Failed to schedule review');
-  }
-};
+    try {
+      const selectedTeam = teams.find((t) => t.team_id === formData.team_id);
+      const response = await instance.post(`/api/guide/${guideRegNum}/schedule`, {
+        ...formData,
+        project_id: selectedTeam?.project_id || ''
+      });
 
+      alert(response.data.message || 'Review scheduled successfully!');
+      if (onSuccess) onSuccess();
+      navigate('/guide/schedule-review');
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to schedule review');
+    }
+  };
 
   if (loading) return <div className="p-4">Loading teams...</div>;
   if (error) return <div className="p-4 text-red-500">{error}</div>;
@@ -88,6 +81,7 @@ const handleSubmit = async (e) => {
       <h1 className="text-2xl font-bold mb-6 text-purple-700">Schedule Review</h1>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Team Selection */}
           <div>
             <label className="block text-gray-700 mb-2">Team</label>
             <select
@@ -105,6 +99,25 @@ const handleSubmit = async (e) => {
               ))}
             </select>
           </div>
+
+          {/* Semester Selection */}
+          <div>
+            <label className="block text-gray-700 mb-2">Semester</label>
+            <select
+              name="semester"
+              value={formData.semester}
+              onChange={handleChange}
+              className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+              required
+            >
+              <option value="5">Semester 5</option>
+              <option value="6">Semester 6</option>
+              <option value="7">Semester 7</option>
+              <option value="8">Semester 8</option>
+            </select>
+          </div>
+
+          {/* Review Type */}
           <div>
             <label className="block text-gray-700 mb-2">Review Type</label>
             <select
@@ -114,12 +127,12 @@ const handleSubmit = async (e) => {
               className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
               required
             >
-             
-              <option value="review-1">review-1</option>
-              <option value="review-2">review-2</option>
-            
+              <option value="review-1">Review 1</option>
+              <option value="review-2">Review 2</option>
             </select>
           </div>
+
+          {/* Venue */}
           <div>
             <label className="block text-gray-700 mb-2">Venue</label>
             <input
@@ -131,6 +144,8 @@ const handleSubmit = async (e) => {
               required
             />
           </div>
+
+          {/* Date */}
           <div>
             <label className="block text-gray-700 mb-2">Date</label>
             <input
@@ -142,6 +157,8 @@ const handleSubmit = async (e) => {
               required
             />
           </div>
+
+          {/* Time */}
           <div>
             <label className="block text-gray-700 mb-2">Time</label>
             <input
@@ -153,7 +170,9 @@ const handleSubmit = async (e) => {
               required
             />
           </div>
-          <div>
+
+          {/* Meeting Link */}
+          <div className="md:col-span-2">
             <label className="block text-gray-700 mb-2">Meeting Link (Optional)</label>
             <input
               type="url"
@@ -179,4 +198,3 @@ const handleSubmit = async (e) => {
 };
 
 export default ScheduleReview;
-// ...existing code...

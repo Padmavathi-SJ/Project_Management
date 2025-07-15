@@ -51,6 +51,7 @@ import ReviewScheduling from './components/guide/Review_Scheduling';
 import ReviewProgress from './components/guide/Review_Progress';
 
 import AwardMarks from './components/guide/AwardMarks';
+import StudentReviewProgress from "./components/Students/ReviewProgress";
 /*
 import GuideScheduleReview from './components/guide/schedule_review';
 import SubExpertScheduleReview from './components/Subject_expert/Schedule_review';
@@ -109,7 +110,7 @@ function App() {
                     <>
                       <Route path="queries" element={<Queries />} />
                       <Route path="review" element={<Review_Schedules />} />
-                      <Route path="Progress_update" element={<Progress_Update />} />
+                      <Route path="Progress_update" element={<StudentReviewProgress />} />
                       <Route path="week" element={<WeeklyLogsHistory />} />
                     </>
                   )}

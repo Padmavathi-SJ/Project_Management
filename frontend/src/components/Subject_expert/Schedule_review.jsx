@@ -14,6 +14,7 @@ const ScheduleReview = ({ onSuccess }) => {
 
   const [formData, setFormData] = useState({
     team_id: '',
+    semester: '5',
     review_type: 'review-1',
     venue: '',
     date: '',
@@ -103,6 +104,24 @@ const ScheduleReview = ({ onSuccess }) => {
               ))}
             </select>
           </div>
+          {/* Semester Selection */}
+          <div>
+            <label className="block text-gray-700 mb-2">Semester</label>
+            <select
+              name="semester"
+              value={formData.semester}
+              onChange={handleChange}
+              className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+              required
+            >
+              <option value="5">Semester 5</option>
+              <option value="6">Semester 6</option>
+              <option value="7">Semester 7</option>
+              <option value="8">Semester 8</option>
+            </select>
+          </div>
+
+          {/* Review Type */}
           <div>
             <label className="block text-gray-700 mb-2">Review Type</label>
             <select
