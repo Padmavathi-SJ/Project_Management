@@ -1,21 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useParams } from 'react-router-dom';
 
 const ReviewProgress = () => {
-  const [loading, setLoading] = useState(false);
+  const { student_reg_num, team_id } = useParams();
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [reviewData, setReviewData] = useState([]);
+  const [reviewData, setReviewData] = useState(null);
   const [formData, setFormData] = useState({
-    studentRegNum: '',
-    teamId: '',
+    studentRegNum: student_reg_num || '',
+    teamId: team_id || '',
     semester: '7',
     reviewType: 'review-1'
   });
 
-  const fetchReviewProgress = async () => {
-    const { studentRegNum, teamId, semester, reviewType } = formData;
-    
-    if (!studentRegNum || !teamId) {
+  // Fetch logged-in student's data on component mount
+  useEffect(() => {
+    if (student_reg_num && team_id) {
+      fetchReviewProgress(student_reg_num, team_id, '7', 'review-1');
+    } else {
+      setLoading(false);
+    }
+  }, [student_reg_num, team_id]);
+
+  const fetchReviewProgress = async (regNum, teamId, semester, reviewType) => {
+    if (!regNum || !teamId) {
       setError('Student Registration Number and Team ID are required');
       return;
     }
@@ -24,17 +33,25 @@ const ReviewProgress = () => {
     setError(null);
     
     try {
-      const response = await axios.get(`/review-progress/${studentRegNum}/${teamId}`, {
-        params: { semester, review_type: reviewType }
-      });
+      const response = await axios.get(
+        `http://localhost:5000/review-progress/${regNum}/${teamId}`, 
+        {
+          params: { 
+            semester, 
+            review_type: reviewType 
+          }
+        }
+      );
       
       if (response.data.status) {
-        setReviewData([response.data.data]);
+        setReviewData(response.data.data);
       } else {
         setError(response.data.error || 'No data found');
+        setReviewData(null);
       }
     } catch (err) {
       setError(err.response?.data?.error || err.message || 'Failed to fetch data');
+      setReviewData(null);
     } finally {
       setLoading(false);
     }
@@ -47,7 +64,12 @@ const ReviewProgress = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    fetchReviewProgress();
+    fetchReviewProgress(
+      formData.studentRegNum, 
+      formData.teamId, 
+      formData.semester, 
+      formData.reviewType
+    );
   };
 
   const getStatusColor = (status) => {
@@ -59,7 +81,7 @@ const ReviewProgress = () => {
   const getReviewTypeColor = (type) => {
     return type === 'review-1' 
       ? 'bg-blue-100 text-blue-800' 
-      : 'bg-green-100 text-green-800';
+      : 'bg-purple-100 text-purple-800';
   };
 
   return (
@@ -125,7 +147,7 @@ const ReviewProgress = () => {
         <div className="flex justify-center items-center h-32">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
         </div>
-      ) : (
+      ) : reviewData ? (
         <div className="overflow-x-auto">
           <table className="min-w-full bg-white border border-gray-200">
             <thead className="bg-gray-50">
@@ -138,29 +160,31 @@ const ReviewProgress = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b">Awarded Marks</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
-              {reviewData.map((item) => (
-                <tr key={`${item.team_id}-${item.student_reg_num}-${item.review_type}`}>
-                  <td className="px-6 py-4 whitespace-nowrap border-b">{item.team_id}</td>
-                  <td className="px-6 py-4 whitespace-nowrap border-b">{item.student_reg_num}</td>
-                  <td className="px-6 py-4 whitespace-nowrap border-b">Semester {item.semester}</td>
-                  <td className="px-6 py-4 whitespace-nowrap border-b">
-                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getReviewTypeColor(item.review_type)}`}>
-                      {item.review_type === 'review-1' ? 'First Review' : 'Second Review'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap border-b">
-                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(item.status)}`}>
-                      {item.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap border-b font-medium">
-                    {item.awarded_marks ?? 'Not Available'}
-                  </td>
-                </tr>
-              ))}
+            <tbody>
+              <tr key={`${reviewData.team_id}-${reviewData.student_reg_num}-${reviewData.review_type}`}>
+                <td className="px-6 py-4 whitespace-nowrap border-b">{reviewData.team_id}</td>
+                <td className="px-6 py-4 whitespace-nowrap border-b">{reviewData.student_reg_num}</td>
+                <td className="px-6 py-4 whitespace-nowrap border-b">Semester {reviewData.semester}</td>
+                <td className="px-6 py-4 whitespace-nowrap border-b">
+                  <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getReviewTypeColor(reviewData.review_type)}`}>
+                    {reviewData.review_type === 'review-1' ? 'First Review' : 'Second Review'}
+                  </span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap border-b">
+                  <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(reviewData.status)}`}>
+                    {reviewData.status}
+                  </span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap border-b font-medium">
+                  {reviewData.awarded_marks ?? 'Not Available'}
+                </td>
+              </tr>
             </tbody>
           </table>
+        </div>
+      ) : (
+        <div className="text-center py-8 text-gray-500">
+          {!error && "No data to display. Please search for a student's review progress."}
         </div>
       )}
     </div>
