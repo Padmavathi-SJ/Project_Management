@@ -1,27 +1,24 @@
 const db = require('../../db.js');
 
+// Helper function to get team members
 const get_team_members = (team_id) => {
     const query = `
         SELECT reg_num AS student_reg_num
         FROM teams
         WHERE team_id = ?
     `;
-    console.log('Executing query:', query, 'with team_id:', team_id);
-    
     return new Promise((resolve, reject) => {
         db.query(query, [team_id], (err, result) => {
-            if(err) {
-                console.error('Database error:', err);
-                return reject(err);
-            }
-            console.log('Query result:', result);
+            if(err) return reject(err);
             return resolve(result);
         });
     });
 };
 
-// Validate marks before insertion
-const validateMarks = (marks, reviewType, semester) => {
+// Validate marks only if student is present
+const validateMarks = (marks, reviewType, semester, attendance) => {
+    if (attendance === 'absent') return null;
+
     const errors = [];
     
     if (semester === '5' || semester === '6') {
@@ -48,14 +45,6 @@ const validateMarks = (marks, reviewType, semester) => {
                     errors.push(`${field} must be between 0 and ${max}`);
                 }
             }
-            // Validate total marks don't exceed maximum
-            const totalMarks = Object.values(fieldRanges).reduce((a, b) => a + b, 0);
-            const submittedTotal = Object.keys(fieldRanges)
-                .reduce((sum, field) => sum + (parseInt(marks[field]) || 0), 0);
-            
-            if (submittedTotal > totalMarks) {
-                errors.push(`Total marks cannot exceed ${totalMarks}`);
-            }
         } 
         else if (reviewType === 'review-2') {
             const fieldRanges = {
@@ -78,17 +67,8 @@ const validateMarks = (marks, reviewType, semester) => {
                     errors.push(`${field} must be between 0 and ${max}`);
                 }
             }
-            // Validate total marks don't exceed maximum
-            const totalMarks = Object.values(fieldRanges).reduce((a, b) => a + b, 0);
-            const submittedTotal = Object.keys(fieldRanges)
-                .reduce((sum, field) => sum + (parseInt(marks[field]) || 0), 0);
-            
-            if (submittedTotal > totalMarks) {
-                errors.push(`Total marks cannot exceed ${totalMarks}`);
-            }
         }
     }
-    // Semester 7 Validations
     else if (semester === '7') {
         if (reviewType === 'review-1') {
             const fieldRanges = {
@@ -116,14 +96,6 @@ const validateMarks = (marks, reviewType, semester) => {
                     errors.push(`${field} must be between 0 and ${max}`);
                 }
             }
-            // Validate total marks don't exceed maximum
-            const totalMarks = Object.values(fieldRanges).reduce((a, b) => a + b, 0);
-            const submittedTotal = Object.keys(fieldRanges)
-                .reduce((sum, field) => sum + (parseInt(marks[field]) || 0), 0);
-            
-            if (submittedTotal > totalMarks) {
-                errors.push(`Total marks cannot exceed ${totalMarks}`);
-            }
         } 
         else if (reviewType === 'review-2') {
             const fieldRanges = {
@@ -148,16 +120,7 @@ const validateMarks = (marks, reviewType, semester) => {
                     errors.push(`${field} must be between 0 and ${max}`);
                 }
             }
-            // Validate total marks don't exceed maximum
-            const totalMarks = Object.values(fieldRanges).reduce((a, b) => a + b, 0);
-            const submittedTotal = Object.keys(fieldRanges)
-                .reduce((sum, field) => sum + (parseInt(marks[field]) || 0), 0);
-            
-            if (submittedTotal > totalMarks) {
-                errors.push(`Total marks cannot exceed ${totalMarks}`);
-            }
 
-            // Special validation for publications field
             if (marks.publications_conference_journal_patent && 
                 marks.publications_conference_journal_patent.length > 255) {
                 errors.push('Publications field must be less than 255 characters');
@@ -168,11 +131,34 @@ const validateMarks = (marks, reviewType, semester) => {
     return errors.length ? errors : null;
 };
 
-// Semester 5/6 First Review
+// Helper to prepare data for insertion
+// Modified prepareMarksData()
+const prepareMarksData = (data) => {
+    const { attendance, marks = {}, ...rest } = data;
+    
+    if (attendance === 'absent') {
+        // For absent students, only include non-mark fields
+        return {
+            ...rest,
+            attendance
+            // Let database use column defaults
+        };
+    }
+    
+    // For present students, include all marks
+    return {
+        ...rest,
+        attendance,
+        ...marks
+    };
+};
+
+// Database insertion functions (all updated to use prepareMarksData)
 const insert_s56_first_review_by_guide = (data) => {
+    const preparedData = prepareMarksData(data);
     const query = `INSERT INTO s5_s6_first_review_marks_byguide SET ?`;
     return new Promise((resolve, reject) => {
-        db.query(query, [data], (err, result) => {
+        db.query(query, [preparedData], (err, result) => {
             if(err) return reject(err);
             return resolve(result);
         });
@@ -180,20 +166,21 @@ const insert_s56_first_review_by_guide = (data) => {
 };
 
 const insert_s56_first_review_by_subexpert = (data) => {
+    const preparedData = prepareMarksData(data);
     const query = `INSERT INTO s5_s6_first_review_marks_bysubexpert SET ?`;
     return new Promise((resolve, reject) => {
-        db.query(query, [data], (err, result) => {
+        db.query(query, [preparedData], (err, result) => {
             if(err) return reject(err);
             return resolve(result);
         });
     });
 };
 
-// Semester 5/6 Second Review
 const insert_s56_second_review_by_guide = (data) => {
+    const preparedData = prepareMarksData(data);
     const query = `INSERT INTO s5_s6_second_review_marks_byguide SET ?`;
     return new Promise((resolve, reject) => {
-        db.query(query, [data], (err, result) => {
+        db.query(query, [preparedData], (err, result) => {
             if(err) return reject(err);
             return resolve(result);
         });
@@ -201,20 +188,21 @@ const insert_s56_second_review_by_guide = (data) => {
 };
 
 const insert_s56_second_review_by_subexpert = (data) => {
+    const preparedData = prepareMarksData(data);
     const query = `INSERT INTO s5_s6_second_review_marks_bysubexpert SET ?`;
     return new Promise((resolve, reject) => {
-        db.query(query, [data], (err, result) => {
+        db.query(query, [preparedData], (err, result) => {
             if(err) return reject(err);
             return resolve(result);
         });
     });
 };
 
-// Semester 7 First Review
 const insert_s7_first_review_by_guide = (data) => {
+    const preparedData = prepareMarksData(data);
     const query = `INSERT INTO s7_first_review_marks_byguide SET ?`;
     return new Promise((resolve, reject) => {
-        db.query(query, [data], (err, result) => {
+        db.query(query, [preparedData], (err, result) => {
             if(err) return reject(err);
             return resolve(result);
         });
@@ -222,20 +210,21 @@ const insert_s7_first_review_by_guide = (data) => {
 };
 
 const insert_s7_first_review_by_subexpert = (data) => {
+    const preparedData = prepareMarksData(data);
     const query = `INSERT INTO s7_first_review_marks_bysubexpert SET ?`;
     return new Promise((resolve, reject) => {
-        db.query(query, [data], (err, result) => {
+        db.query(query, [preparedData], (err, result) => {
             if(err) return reject(err);
             return resolve(result);
         });
     });
 };
 
-// Semester 7 Second Review
 const insert_s7_second_review_by_guide = (data) => {
+    const preparedData = prepareMarksData(data);
     const query = `INSERT INTO s7_second_review_marks_byguide SET ?`;
     return new Promise((resolve, reject) => {
-        db.query(query, [data], (err, result) => {
+        db.query(query, [preparedData], (err, result) => {
             if(err) return reject(err);
             return resolve(result);
         });
@@ -243,9 +232,10 @@ const insert_s7_second_review_by_guide = (data) => {
 };
 
 const insert_s7_second_review_by_subexpert = (data) => {
+    const preparedData = prepareMarksData(data);
     const query = `INSERT INTO s7_second_review_marks_bysubexpert SET ?`;
     return new Promise((resolve, reject) => {
-        db.query(query, [data], (err, result) => {
+        db.query(query, [preparedData], (err, result) => {
             if(err) return reject(err);
             return resolve(result);
         });
@@ -254,6 +244,7 @@ const insert_s7_second_review_by_subexpert = (data) => {
 
 module.exports = {
     get_team_members,
+    validateMarks,
     insert_s56_first_review_by_guide,
     insert_s56_first_review_by_subexpert,
     insert_s56_second_review_by_guide,
@@ -261,6 +252,5 @@ module.exports = {
     insert_s7_first_review_by_guide,
     insert_s7_first_review_by_subexpert,
     insert_s7_second_review_by_guide,
-    insert_s7_second_review_by_subexpert,
-    validateMarks
+    insert_s7_second_review_by_subexpert
 };
