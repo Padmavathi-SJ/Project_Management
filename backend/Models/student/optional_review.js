@@ -64,33 +64,94 @@ const hasExistingRequest = (student_reg_num, semester) => {
     });
 };
 
-// Create new optional review request
-const createRequest = (requestData) => {
+const getTeamDetails = (team_id) => {
     const query = `
-        INSERT INTO optional_review_requests (
-            team_id, project_id, semester, review_type, 
-            student_reg_num, guide_reg_num, sub_expert_reg_num, 
-            request_reason
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        SELECT 
+            t.team_id,
+            t.project_id,
+            t.guide_reg_num,
+            t.sub_expert_reg_num,
+            t.semester,
+            p.project_name
+        FROM teams t
+        LEFT JOIN projects p ON t.project_id = p.project_id
+        WHERE t.team_id = ?
+        LIMIT 1
     `;
-    const params = [
-        requestData.team_id,
-        requestData.project_id,
-        requestData.semester,
-        requestData.review_type,
-        requestData.student_reg_num,
-        requestData.guide_reg_num,
-        requestData.sub_expert_reg_num,
-        requestData.request_reason
-    ];
     
     return new Promise((resolve, reject) => {
-        db.query(query, params, (err, result) => {
+        db.query(query, [team_id], (err, result) => {
+            if (err) return reject(err);
+            resolve(result[0] || null);
+        });
+    });
+};
+
+// Get all team members for a team
+const getTeamMembers = (team_id) => {
+    const query = `
+        SELECT reg_num, is_leader 
+        FROM teams 
+        WHERE team_id = ?
+    `;
+    
+    return new Promise((resolve, reject) => {
+        db.query(query, [team_id], (err, result) => {
             if (err) return reject(err);
             resolve(result);
         });
     });
 };
+
+// Verify student belongs to team
+const verifyTeamMembership = (team_id, student_reg_num) => {
+    const query = `
+        SELECT COUNT(*) as count 
+        FROM teams 
+        WHERE team_id = ? AND reg_num = ?
+    `;
+    
+    return new Promise((resolve, reject) => {
+        db.query(query, [team_id, student_reg_num], (err, result) => {
+            if (err) return reject(err);
+            resolve(result[0].count > 0);
+        });
+    });
+};
+
+// Create new optional review request
+const createRequest = (requestData) => {
+  const query = `
+    INSERT INTO optional_review_requests (
+      team_id, project_id, semester, review_type, 
+      student_reg_num, guide_reg_num, sub_expert_reg_num, 
+      request_reason, request_status
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+  `;
+  
+  const params = [
+    requestData.team_id,
+    requestData.project_id,
+    requestData.semester,
+    requestData.review_type,
+    requestData.student_reg_num,
+    requestData.guide_reg_num,
+    requestData.sub_expert_reg_num,
+    requestData.request_reason
+  ];
+
+  return new Promise((resolve, reject) => {
+    db.query(query, params, (err, result) => {
+      if (err) {
+        console.error("Database error:", err);
+        return reject(err);
+      }
+      resolve(result);
+    });
+  });
+};
+
+
 
 // Get all optional review requests (for admin view)
 const getAllRequests = () => {
@@ -126,6 +187,9 @@ const updateRequestStatus = (request_id, status, rejection_reason = null) => {
 };
 
 module.exports = {
+    getTeamDetails,
+    getTeamMembers,
+    verifyTeamMembership,
     isOptionalReviewEnabled,
     isStudentAbsent,
     hasExistingRequest,
