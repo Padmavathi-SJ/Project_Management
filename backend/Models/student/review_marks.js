@@ -1,5 +1,63 @@
 const db = require('../../db.js');
 
+
+// Helper function to determine table name
+const getTableName = (semester, review_type, evaluator_type) => {
+    const prefix = semester === '7' ? 's7' : 's5_s6';
+    const review = review_type === 'review-1' ? 'first_review' : 'second_review';
+    const evaluator = evaluator_type === 'guide' ? 'byguide' : 'bysubexpert';
+    return `${prefix}_${review}_marks_${evaluator}`;
+};
+
+// Helper function for promise-based db queries
+const dbQuery = (query, params) => {
+    return new Promise((resolve, reject) => {
+        db.query(query, params, (err, result) => {
+            if (err) return reject(err);
+            resolve(result);
+        });
+    });
+};
+
+
+const get_review_status = async (team_id, semester, review_type, student_reg_num) => {
+    try {
+        // Check guide's attendance status
+        const guideQuery = `
+            SELECT attendance FROM ${getTableName(semester, review_type, 'guide')}
+            WHERE team_id = ? AND semester = ? AND review_type = ? AND student_reg_num = ?
+            LIMIT 1
+        `;
+        
+        // Check sub-expert's attendance status
+        const subExpertQuery = `
+            SELECT attendance FROM ${getTableName(semester, review_type, 'sub_expert')}
+            WHERE team_id = ? AND semester = ? AND review_type = ? AND student_reg_num = ?
+            LIMIT 1
+        `;
+
+        const [guideResult, subExpertResult] = await Promise.all([
+            dbQuery(guideQuery, [team_id, semester, review_type, student_reg_num]),
+            dbQuery(subExpertQuery, [team_id, semester, review_type, student_reg_num])
+        ]);
+
+        const guidePresent = guideResult.length > 0 && guideResult[0].attendance === 'present';
+        const subExpertPresent = subExpertResult.length > 0 && subExpertResult[0].attendance === 'present';
+
+        return {
+            guideStatus: guidePresent ? 'Completed' : 'Not Completed',
+            subExpertStatus: subExpertPresent ? 'Completed' : 'Not Completed',
+            reviewStatus: (guidePresent && subExpertPresent) ? 'Completed' : 'Not Completed'
+        };
+
+    } catch (error) {
+        console.error("Error checking review status:", error);
+        throw error;
+    }
+};
+
+
+
 const get_average_marks = async (student_reg_num, team_id, semester, review_type) => {
     try {
         // Determine the correct tables based on semester and review type
@@ -82,44 +140,6 @@ const get_average_marks = async (student_reg_num, team_id, semester, review_type
         throw error;
     }
 };
-
-
-// Check if both guide and sub-expert scheduled and completed the review
-const get_review_status = (team_id, semester, review_type) => {
-    return new Promise((resolve, reject) => {
-        const guideQuery = `
-            SELECT status FROM guide_review_schedules 
-            WHERE team_id = ? AND semester = ? AND review_type = ?
-        `;
-
-        const subExpertQuery = `
-            SELECT status FROM sub_expert_review_schedules 
-            WHERE team_id = ? AND semester = ? AND review_type = ?
-        `;
-
-        Promise.all([
-            new Promise((res, rej) => {
-                db.query(guideQuery, [team_id, semester, review_type], (err, result) => {
-                    if (err) return rej(err);
-                    res(result.length > 0 ? result[0].status : null);
-                });
-            }),
-            new Promise((res, rej) => {
-                db.query(subExpertQuery, [team_id, semester, review_type], (err, result) => {
-                    if (err) return rej(err);
-                    res(result.length > 0 ? result[0].status : null);
-                });
-            })
-        ])
-        .then(([guideStatus, subExpertStatus]) => {
-            const completed = guideStatus === 'Completed' && subExpertStatus === 'Completed';
-            resolve({ guideStatus, subExpertStatus, reviewStatus: completed ? 'Completed' : 'Pending' });
-        })
-        .catch(err => reject(err));
-    });
-};
-
-
 
 
 module.exports = {
