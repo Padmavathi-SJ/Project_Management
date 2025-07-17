@@ -29,6 +29,7 @@ const sub_expertRoutes = require('./Routes/sub-expert_routes.js')
 const studentReviewRoutes = require('./Routes/student_routes.js');
 
 const marksRoutes = require('./Routes/review_marks.js');
+const optionalReviewRouter = require('./Routes/optionalReviewRoutes.js');
 
 // Middleware
 app.use(express.json());
@@ -256,10 +257,12 @@ app.use("/", subjectExpertRouter);
 app.use("/", uploadRouter);
 app.use("/", mentorRoute);
 app.use("/", generalRoute);
+app.use("/api/optional-reviews", optionalReviewRouter);
 
 app.use("/api/guide", guideRoutes);
 app.use("/api/marks", marksRoutes);
 app.use("/api/sub-expert", sub_expertRoutes);
+
 
 
 // Serve static files
