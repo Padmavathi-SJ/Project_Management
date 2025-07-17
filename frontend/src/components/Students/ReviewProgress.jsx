@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 
 const ReviewProgress = () => {
   const { student_reg_num, team_id } = useParams();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [reviewData, setReviewData] = useState(null);
+  const [isOptionalReviewEligible, setIsOptionalReviewEligible] = useState(false);
+  const [optionalReviewLoading, setOptionalReviewLoading] = useState(false);
   const [formData, setFormData] = useState({
     studentRegNum: student_reg_num || '',
     teamId: team_id || '',
@@ -44,6 +47,8 @@ const ReviewProgress = () => {
       
       if (response.data.status) {
         setReviewData(response.data.data);
+        // Check optional review eligibility
+        checkOptionalReviewEligibility(regNum, semester, reviewType);
       } else {
         setError(response.data.error || 'No data found');
         setReviewData(null);
@@ -53,6 +58,27 @@ const ReviewProgress = () => {
       setReviewData(null);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const checkOptionalReviewEligibility = async (regNum, semester, reviewType) => {
+    setOptionalReviewLoading(true);
+    try {
+      const response = await axios.get(
+        `http://localhost:5000/api/optional-reviews/eligibility/${regNum}`,
+        {
+          params: {
+            semester,
+            review_type: reviewType
+          }
+        }
+      );
+      setIsOptionalReviewEligible(response.data.isEligible);
+    } catch (err) {
+      console.error('Error checking optional review eligibility:', err);
+      setIsOptionalReviewEligible(false);
+    } finally {
+      setOptionalReviewLoading(false);
     }
   };
 
@@ -69,6 +95,19 @@ const ReviewProgress = () => {
       formData.semester, 
       formData.reviewType
     );
+  };
+
+  const handleOptionalReviewClick = () => {
+    if (reviewData && reviewData.student_reg_num && reviewData.team_id) {
+      navigate(`/student/optional-review/${reviewData.student_reg_num}/${reviewData.team_id}`, {
+        state: {
+          semester: formData.semester,
+          reviewType: formData.reviewType
+        }
+      });
+    } else {
+      console.error('Student registration number or team ID is missing');
+    }
   };
 
   const getStatusColor = (status) => {
@@ -171,6 +210,21 @@ const ReviewProgress = () => {
                   </span>
                 </p>
               </div>
+            </div>
+            
+            {/* Optional Review Button */}
+            <div className="mt-4 flex justify-end">
+              <button
+                onClick={handleOptionalReviewClick}
+                disabled={!isOptionalReviewEligible || optionalReviewLoading}
+                className={`px-4 py-2 rounded-md text-white ${
+                  isOptionalReviewEligible 
+                    ? 'bg-purple-600 hover:bg-purple-700' 
+                    : 'bg-gray-400 cursor-not-allowed'
+                } focus:outline-none focus:ring-2 focus:ring-purple-500`}
+              >
+                {optionalReviewLoading ? 'Checking...' : 'Apply Optional Review'}
+              </button>
             </div>
           </div>
 
