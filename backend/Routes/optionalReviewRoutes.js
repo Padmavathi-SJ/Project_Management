@@ -8,6 +8,11 @@ const {
   getProjectByTeam
 } = require('../Controllers/student/optional_review');
 
+const {
+  scheduleReview
+} = require('../Controllers/common_controller.js/optional_review.js');
+
+
 // Debug middleware (temporary)
 router.use((req, res, next) => {
   console.log(`[${req.method}] ${req.originalUrl}`);
@@ -18,6 +23,9 @@ router.use((req, res, next) => {
 router.get('/eligibility/:reg_num', checkEligibility);
 router.post('/post-request', submitRequest);
 router.get('/projects/team/:team_id', getProjectByTeam);
+
+router.post('/schedule_review/:user_reg_num', scheduleReview);
+
 
 // Admin routes
 router.get('/requests', fetchAllRequests);

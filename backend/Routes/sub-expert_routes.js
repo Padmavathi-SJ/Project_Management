@@ -7,6 +7,14 @@ const {
     updateSubExpertReviewStatus
 } = require('../Controllers/sub_expert/schedule_review.js');
 
+const {
+    getStudentsForReview
+} = require('../Controllers/sub_expert/optional_review.js');
+
+// Scheduling routes
+router.get('/students_for_review/:user_reg_num', getStudentsForReview);
+
+
 // Get all teams for a sub-expert
 router.get('/:sub_expert_reg_num/teams', fetch_teams);
 
