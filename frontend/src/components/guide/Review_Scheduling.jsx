@@ -18,6 +18,11 @@ const ReviewScheduling = () => {
     navigate('/schedule-review'); // Ensure URL consistency
   };
 
+  // Function to navigate to optional review requests
+  const handleOptionalReviews = () => {
+    navigate('/guide/optional_review_requests');
+  };
+
   if (selectedOption === 'guide') {
     return (
       <div>
@@ -65,6 +70,14 @@ const ReviewScheduling = () => {
           <h2 className="text-xl font-semibold text-purple-700 mb-2">Schedule Review as Sub-Expert</h2>
           <p className="text-gray-600">Schedule reviews for teams you are assigned to as sub-expert</p>
         </div>
+        
+        <button
+          onClick={handleOptionalReviews}
+          className="w-full p-4 border border-gray-300 rounded-lg hover:bg-purple-50 hover:border-purple-300 transition-colors text-left"
+        >
+          <h2 className="text-xl font-semibold text-purple-700 mb-2">Optional Review Requests</h2>
+          <p className="text-gray-600">View and manage optional review requests</p>
+        </button>
       </div>
     </div>
   );
