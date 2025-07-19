@@ -1,48 +1,25 @@
 const db = require('../../db.js');
 
-const getStudentsForScheduling = (user_reg_num) => {
+const getSubExpertStudents = (sub_expert_reg_num) => {
   return new Promise((resolve, reject) => {
-    // First check if user is a guide
-    const guideQuery = `
+    const query = `
       SELECT 
         request_id,
         student_reg_num,
         team_id,
         project_id,
         semester,
-        review_type
+        review_type,
+        'sub_expert' as user_role
       FROM optional_review_requests
-      WHERE guide_reg_num = ? 
+      WHERE sub_expert_reg_num = ? 
       AND request_status = 'approved'
       ORDER BY created_at DESC
     `;
     
-    db.query(guideQuery, [user_reg_num], (err, guideResults) => {
+    db.query(query, [sub_expert_reg_num], (err, results) => {
       if (err) return reject(err);
-      
-      if (guideResults.length > 0) {
-        return resolve({ students: guideResults, userType: 'guide' });
-      }
-      
-      // If not a guide, check if user is a sub-expert
-      const subExpertQuery = `
-        SELECT 
-          request_id,
-          student_reg_num,
-          team_id,
-          project_id,
-          semester,
-          review_type
-        FROM optional_review_requests
-        WHERE sub_expert_reg_num = ? 
-        AND request_status = 'approved'
-        ORDER BY created_at DESC
-      `;
-      
-      db.query(subExpertQuery, [user_reg_num], (subErr, subResults) => {
-        if (subErr) return reject(subErr);
-        resolve({ students: subResults, userType: subResults.length > 0 ? 'sub_expert' : null });
-      });
+      resolve(results);
     });
   });
 };
@@ -126,7 +103,7 @@ const scheduleOptionalReview = (reviewData) => {
 };
 
 module.exports = {
-    getStudentsForScheduling,
+    getSubExpertStudents,
     getRequestDetailsById,
     scheduleOptionalReview
 }

@@ -1,10 +1,8 @@
 const { 
   getRequestsByUser,
   updateRequestStatusModel,
-  scheduleOptionalReview,
   getApprovedOptionalRequests,
-  getRequestDetailsById,
-  getStudentsForScheduling
+  getGuideStudents
 } = require('../../Models/guide/optional_review.js');
 
 // Get optional review requests
@@ -84,27 +82,27 @@ const updateRequestStatus = async (req, res) => {
   }
 };
 
-const getStudentsForReview = async (req, res) => {
+const getGuideStudentsForReview = async (req, res) => {
   try {
     const { user_reg_num } = req.params;
 
-    const { students, userType } = await getStudentsForScheduling(user_reg_num);
+    const students = await getGuideStudents(user_reg_num);
 
-    if (!userType) {
+    if (students.length === 0) {
       return res.status(404).json({
         status: false,
-        error: "No approved requests found for this user"
+        error: "No approved requests found for this guide"
       });
     }
 
     return res.json({
       status: true,
-      user_type: userType,
+      user_type: 'guide',
       data: students
     });
 
   } catch (error) {
-    console.error("Error fetching students:", error);
+    console.error("Error fetching guide students:", error);
     return res.status(500).json({
       status: false,
       error: "Internal server error"
@@ -116,5 +114,5 @@ const getStudentsForReview = async (req, res) => {
 module.exports = {
   getOptionalReviewRequests,
   updateRequestStatus,
-  getStudentsForReview
+  getGuideStudentsForReview
 };

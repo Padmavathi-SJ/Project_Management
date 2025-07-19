@@ -8,11 +8,11 @@ const {
 } = require('../Controllers/sub_expert/schedule_review.js');
 
 const {
-    getStudentsForReview
+    getSubExpertStudentsForReview
 } = require('../Controllers/sub_expert/optional_review.js');
 
 // Scheduling routes
-router.get('/students_for_review/:user_reg_num', getStudentsForReview);
+router.get('/students_for_review/:user_reg_num', getSubExpertStudentsForReview);
 
 
 // Get all teams for a sub-expert

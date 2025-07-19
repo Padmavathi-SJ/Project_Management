@@ -1,36 +1,37 @@
 const {
     scheduleOptionalReview,
     getRequestDetailsById,
-  getStudentsForScheduling
+  getSubExpertStudents
 } = require('../../Models/sub_expert/optional_review.js');
 
-const getStudentsForReview = async (req, res) => {
+const getSubExpertStudentsForReview = async (req, res) => {
   try {
     const { user_reg_num } = req.params;
 
-    const { students, userType } = await getStudentsForScheduling(user_reg_num);
+    const students = await getSubExpertStudents(user_reg_num);
 
-    if (!userType) {
+    if (students.length === 0) {
       return res.status(404).json({
         status: false,
-        error: "No approved requests found for this user"
+        error: "No approved requests found for this sub-expert"
       });
     }
 
     return res.json({
       status: true,
-      user_type: userType,
+      user_type: 'sub_expert',
       data: students
     });
 
   } catch (error) {
-    console.error("Error fetching students:", error);
+    console.error("Error fetching sub-expert students:", error);
     return res.status(500).json({
       status: false,
       error: "Internal server error"
     });
   }
 };
+
 
 const scheduleReview = async (req, res) => {
   try {
@@ -100,6 +101,6 @@ const scheduleReview = async (req, res) => {
 
 
 module.exports = {
-    getStudentsForReview,
+    getSubExpertStudentsForReview,
     scheduleReview
 }

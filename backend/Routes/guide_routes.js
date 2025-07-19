@@ -10,7 +10,7 @@ const {
 
 const { getOptionalReviewRequests, 
     updateRequestStatus,
-    getStudentsForReview } = require('../Controllers/guide/optional_review.js');
+    getGuideStudentsForReview } = require('../Controllers/guide/optional_review.js');
 
 // Debug middleware
 router.use((req, res, next) => {
@@ -23,7 +23,7 @@ router.get('/optional_review_requests/:user_reg_num', getOptionalReviewRequests)
 router.patch('/optional_review_requests/:request_id/status',  updateRequestStatus);
 
 // Scheduling routes
-router.get('/students_for_review/:user_reg_num', getStudentsForReview);
+router.get('/students_for_review/:user_reg_num', getGuideStudentsForReview);
 
 
 // Other routes
