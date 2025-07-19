@@ -155,11 +155,121 @@ const checkUserRole = (user_reg_num) => {
 };
 
 
+// Helper function to prepare data for insertion
+const prepareOptionalMarksData = (data) => {
+    const { marks = {}, ...rest } = data;
+    return {
+        ...rest,
+        attendance: 'present', // Always present for optional reviews
+        ...marks
+    };
+};
+
+// Semester 5/6 First Review
+const insert_s56_optional_first_review_by_guide = (data) => {
+    const preparedData = prepareOptionalMarksData(data);
+    const query = `INSERT INTO s5_s6_optional_first_review_marks_byguide SET ?`;
+    return new Promise((resolve, reject) => {
+        db.query(query, [preparedData], (err, result) => {
+            if(err) return reject(err);
+            resolve(result);
+        });
+    });
+};
+
+const insert_s56_optional_first_review_by_subexpert = (data) => {
+    const preparedData = prepareOptionalMarksData(data);
+    const query = `INSERT INTO s5_s6_optional_first_review_marks_bysubexpert SET ?`;
+    return new Promise((resolve, reject) => {
+        db.query(query, [preparedData], (err, result) => {
+            if(err) return reject(err);
+            resolve(result);
+        });
+    });
+};
+
+// Semester 5/6 Second Review
+const insert_s56_optional_second_review_by_guide = (data) => {
+    const preparedData = prepareOptionalMarksData(data);
+    const query = `INSERT INTO s5_s6_optional_second_review_marks_byguide SET ?`;
+    return new Promise((resolve, reject) => {
+        db.query(query, [preparedData], (err, result) => {
+            if(err) return reject(err);
+            resolve(result);
+        });
+    });
+};
+
+const insert_s56_optional_second_review_by_subexpert = (data) => {
+    const preparedData = prepareOptionalMarksData(data);
+    const query = `INSERT INTO s5_s6_optional_second_review_marks_bysubexpert SET ?`;
+    return new Promise((resolve, reject) => {
+        db.query(query, [preparedData], (err, result) => {
+            if(err) return reject(err);
+            resolve(result);
+        });
+    });
+};
+
+// Semester 7 First Review
+const insert_s7_optional_first_review_by_guide = (data) => {
+    const preparedData = prepareOptionalMarksData(data);
+    const query = `INSERT INTO s7_optional_first_review_marks_byguide SET ?`;
+    return new Promise((resolve, reject) => {
+        db.query(query, [preparedData], (err, result) => {
+            if(err) return reject(err);
+            resolve(result);
+        });
+    });
+};
+
+const insert_s7_optional_first_review_by_subexpert = (data) => {
+    const preparedData = prepareOptionalMarksData(data);
+    const query = `INSERT INTO s7_optional_first_review_marks_bysubexpert SET ?`;
+    return new Promise((resolve, reject) => {
+        db.query(query, [preparedData], (err, result) => {
+            if(err) return reject(err);
+            resolve(result);
+        });
+    });
+};
+
+// Semester 7 Second Review
+const insert_s7_optional_second_review_by_guide = (data) => {
+    const preparedData = prepareOptionalMarksData(data);
+    const query = `INSERT INTO s7_optional_second_review_marks_byguide SET ?`;
+    return new Promise((resolve, reject) => {
+        db.query(query, [preparedData], (err, result) => {
+            if(err) return reject(err);
+            resolve(result);
+        });
+    });
+};
+
+const insert_s7_optional_second_review_by_subexpert = (data) => {
+    const preparedData = prepareOptionalMarksData(data);
+    const query = `INSERT INTO s7_optional_second_review_marks_bysubexpert SET ?`;
+    return new Promise((resolve, reject) => {
+        db.query(query, [preparedData], (err, result) => {
+            if(err) return reject(err);
+            resolve(result);
+        });
+    });
+};
+
 
 module.exports = {
     getRequestDetailsById,
     scheduleOptionalReview,
      getGuideReviews,
   getSubExpertReviews,
-  checkUserRole
+  checkUserRole,
+    insert_s56_optional_first_review_by_guide,
+    insert_s56_optional_first_review_by_subexpert,
+    insert_s56_optional_second_review_by_guide,
+    insert_s56_optional_second_review_by_subexpert,
+    insert_s7_optional_first_review_by_guide,
+    insert_s7_optional_first_review_by_subexpert,
+    insert_s7_optional_second_review_by_guide,
+    insert_s7_optional_second_review_by_subexpert
 }

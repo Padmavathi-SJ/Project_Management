@@ -243,8 +243,8 @@ const insert_s7_second_review_by_subexpert = (data) => {
 };
 
 module.exports = {
-    get_team_members,
     validateMarks,
+    get_team_members,
     insert_s56_first_review_by_guide,
     insert_s56_first_review_by_subexpert,
     insert_s56_second_review_by_guide,

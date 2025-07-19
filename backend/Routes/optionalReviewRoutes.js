@@ -10,7 +10,8 @@ const {
 
 const {
   scheduleReview,
-  getOptionalReviews
+  getOptionalReviews,
+  submitOptionalReviewMarks
 } = require('../Controllers/common_controller.js/optional_review.js');
 
 const {
@@ -26,6 +27,19 @@ router.use((req, res, next) => {
   console.log(`[${req.method}] ${req.originalUrl}`);
   next();
 });
+
+//award marks for optional reviews
+// For guide submissions
+router.post(
+    '/guide/:reg_num/team/:team_id/submit-optional-marks',
+    submitOptionalReviewMarks
+);
+
+// For sub-expert submissions
+router.post(
+    '/sub-expert/:reg_num/team/:team_id/submit-optional-marks',
+    submitOptionalReviewMarks
+);
 
 // Student routes
 router.get('/eligibility/:reg_num', checkEligibility);

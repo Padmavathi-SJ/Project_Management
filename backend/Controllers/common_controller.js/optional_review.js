@@ -3,9 +3,150 @@ const {
     scheduleOptionalReview,
      getGuideReviews,
   getSubExpertReviews,
-  checkUserRole
+  checkUserRole,
+    insert_s56_optional_first_review_by_guide,
+    insert_s56_optional_first_review_by_subexpert,
+    insert_s56_optional_second_review_by_guide,
+    insert_s56_optional_second_review_by_subexpert,
+    insert_s7_optional_first_review_by_guide,
+    insert_s7_optional_first_review_by_subexpert,
+    insert_s7_optional_second_review_by_guide,
+    insert_s7_optional_second_review_by_subexpert
 } = require('../../Models/common_models/optional_review.js');
- 
+ const {validateMarks} = require('../../Models/guide/award_marks.js');
+
+const submitOptionalReviewMarks = async (req, res) => {
+    const { semester, review_type, user_type, student_reg_num } = req.body;
+    const { team_id } = req.params;
+    const reg_num = req.params.reg_num; // From authenticated user
+
+    try {
+        // Validate required fields
+        const requiredFields = {
+            semester,
+            review_type,
+            user_type,
+            student_reg_num,
+            marks: req.body.marks
+        };
+
+        const missingFields = Object.entries(requiredFields)
+            .filter(([_, value]) => value === undefined || value === null)
+            .map(([field]) => field);
+
+        if (missingFields.length > 0) {
+            return res.status(400).json({
+                status: false,
+                error: 'Missing required fields',
+                missing_fields: missingFields
+            });
+        }
+
+        // Validate field values
+        if (!['5', '6', '7'].includes(semester)) {
+            return res.status(400).json({
+                status: false,
+                error: 'Invalid semester'
+            });
+        }
+
+        if (!['review-1', 'review-2'].includes(review_type)) {
+            return res.status(400).json({
+                status: false,
+                error: 'Invalid review type'
+            });
+        }
+
+        if (!['guide', 'sub_expert'].includes(user_type)) {
+            return res.status(400).json({
+                status: false,
+                error: 'Invalid user type'
+            });
+        }
+
+        // Validate marks structure
+        const validationErrors = validateMarks(req.body.marks, review_type, semester, 'present');
+        if (validationErrors) {
+            return res.status(400).json({
+                status: false,
+                error: 'Invalid marks data',
+                details: validationErrors
+            });
+        }
+
+        // Prepare data for insertion
+        const studentData = {
+            student_reg_num,
+            review_type,
+            team_id,
+            semester,
+            marks: req.body.marks
+        };
+
+        // Set evaluator registration number
+        if (user_type === 'guide') {
+            studentData.guide_reg_num = reg_num;
+        } else {
+            studentData.sub_expert_reg_num = reg_num;
+        }
+
+        // Determine which insert function to use
+        let insertionResult;
+        if (semester === '5' || semester === '6') {
+            if (review_type === 'review-1') {
+                insertionResult = user_type === 'guide'
+                    ? await insert_s56_optional_first_review_by_guide(studentData)
+                    : await insert_s56_optional_first_review_by_subexpert(studentData);
+            } else {
+                insertionResult = user_type === 'guide'
+                    ? await insert_s56_optional_second_review_by_guide(studentData)
+                    : await insert_s56_optional_second_review_by_subexpert(studentData);
+            }
+        } else { // Semester 7
+            if (review_type === 'review-1') {
+                insertionResult = user_type === 'guide'
+                    ? await insert_s7_optional_first_review_by_guide(studentData)
+                    : await insert_s7_optional_first_review_by_subexpert(studentData);
+            } else {
+                insertionResult = user_type === 'guide'
+                    ? await insert_s7_optional_second_review_by_guide(studentData)
+                    : await insert_s7_optional_second_review_by_subexpert(studentData);
+            }
+        }
+
+        return res.status(201).json({
+            status: true,
+            message: 'Optional review marks submitted successfully',
+            data: {
+                id: insertionResult.insertId,
+                student_reg_num,
+                team_id,
+                semester,
+                review_type
+            }
+        });
+
+    } catch (error) {
+        console.error("Error submitting optional review marks:", error);
+        
+        // Handle duplicate entry error
+        if (error.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({
+                status: false,
+                error: "Optional review marks already submitted for this student",
+                details: error.message
+            });
+        }
+
+        return res.status(500).json({
+            status: false,
+            error: "Internal server error",
+            details: error.message
+        });
+    }
+};
+
+
 const scheduleReview = async (req, res) => {
   try {
     const { user_reg_num } = req.params;
@@ -128,5 +269,6 @@ const getOptionalReviews = async (req, res) => {
 
 module.exports = {
     scheduleReview,
-    getOptionalReviews
+    getOptionalReviews,
+    submitOptionalReviewMarks
 }
