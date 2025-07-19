@@ -11,8 +11,9 @@ const {
 const {
   scheduleReview,
   getOptionalReviews,
-  submitOptionalReviewMarks
-} = require('../Controllers/common_controller.js/optional_review.js');
+  submitOptionalReviewMarks,
+  getEligibleStudents
+} = require('../Controllers/common_controllers/optional_review.js');
 
 const {
   updateGuideReviewStatusController
@@ -53,6 +54,7 @@ router.patch(
   '/sub_expert/:review_id/status/:sub_expert_reg_num',
   updateSubExpertReviewStatusController
 );
+router.get('/team/:team_id/eligible-students', getEligibleStudents);
 
 // Admin routes
 router.get('/requests', fetchAllRequests);

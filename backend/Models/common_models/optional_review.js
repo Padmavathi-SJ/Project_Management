@@ -258,6 +258,38 @@ const insert_s7_optional_second_review_by_subexpert = (data) => {
 };
 
 
+const getCompletedOptionalReviewStudents = (teamId) => {
+  return new Promise((resolve, reject) => {
+    const query = `
+      SELECT 
+        g.student_reg_num,
+        g.semester,
+        g.review_type
+      FROM 
+        optional_review_schedules_byguide g
+      INNER JOIN 
+        optional_review_schedules_bysubexpert s
+      ON 
+        g.student_reg_num = s.student_reg_num AND
+        g.team_id = s.team_id AND
+        g.semester = s.semester AND
+        g.review_type = s.review_type
+      WHERE 
+        g.team_id = ? AND 
+        g.status = 'Completed' AND 
+        s.status = 'Completed'
+      GROUP BY 
+        g.student_reg_num, g.semester, g.review_type
+    `;
+    
+    db.query(query, [teamId], (err, results) => {
+      if (err) return reject(err);
+      resolve(results);
+    });
+  });
+};
+
+
 module.exports = {
     getRequestDetailsById,
     scheduleOptionalReview,
@@ -271,5 +303,6 @@ module.exports = {
     insert_s7_optional_first_review_by_guide,
     insert_s7_optional_first_review_by_subexpert,
     insert_s7_optional_second_review_by_guide,
-    insert_s7_optional_second_review_by_subexpert
+    insert_s7_optional_second_review_by_subexpert,
+    getCompletedOptionalReviewStudents,
 }

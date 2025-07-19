@@ -11,7 +11,8 @@ const {
     insert_s7_optional_first_review_by_guide,
     insert_s7_optional_first_review_by_subexpert,
     insert_s7_optional_second_review_by_guide,
-    insert_s7_optional_second_review_by_subexpert
+    insert_s7_optional_second_review_by_subexpert,
+    getCompletedOptionalReviewStudents
 } = require('../../Models/common_models/optional_review.js');
  const {validateMarks} = require('../../Models/guide/award_marks.js');
 
@@ -267,8 +268,56 @@ const getOptionalReviews = async (req, res) => {
 };
 
 
+const getEligibleStudents = async (req, res) => {
+  try {
+    const { team_id } = req.params;
+
+    if (!team_id) {
+      return res.status(400).json({
+        status: false,
+        error: 'Team ID is required'
+      });
+    }
+
+    const completedReviews = await getCompletedOptionalReviewStudents(team_id);
+
+    // Group by student_reg_num
+    const studentsMap = new Map();
+    completedReviews.forEach(review => {
+      if (!studentsMap.has(review.student_reg_num)) {
+        studentsMap.set(review.student_reg_num, []);
+      }
+      studentsMap.get(review.student_reg_num).push({
+        semester: review.semester,
+        review_type: review.review_type
+      });
+    });
+
+    // Convert to array format
+    const students = Array.from(studentsMap, ([student_reg_num, reviews]) => ({
+      student_reg_num,
+      reviews
+    }));
+
+    res.json({
+      status: true,
+      data: students
+    });
+
+  } catch (error) {
+    console.error('Error in getEligibleStudents:', error);
+    res.status(500).json({
+      status: false,
+      error: 'Internal server error',
+      details: error.message
+    });
+  }
+};
+
+
 module.exports = {
     scheduleReview,
     getOptionalReviews,
-    submitOptionalReviewMarks
+    submitOptionalReviewMarks,
+    getEligibleStudents
 }
