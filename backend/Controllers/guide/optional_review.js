@@ -2,7 +2,9 @@ const {
   getRequestsByUser,
   updateRequestStatusModel,
   getApprovedOptionalRequests,
-  getGuideStudents
+  getGuideStudents,
+  updateGuideReviewStatus, 
+  getGuideReviewById
 } = require('../../Models/guide/optional_review.js');
 
 // Get optional review requests
@@ -111,8 +113,41 @@ const getGuideStudentsForReview = async (req, res) => {
 };
 
 
+const updateGuideReviewStatusController = async (req, res) => {
+  try {
+    const { review_id, guide_reg_num } = req.params;
+    const { status } = req.body;
+
+    if (!['Completed', 'Not completed', 'Rescheduled'].includes(status)) {
+      return res.status(400).json({
+        status: false,
+        error: 'Invalid status value'
+      });
+    }
+
+    await updateGuideReviewStatus(review_id, guide_reg_num, status);
+    const updatedReview = await getGuideReviewById(review_id, guide_reg_num);
+
+    res.json({
+      status: true,
+      message: 'Guide review status updated successfully',
+      data: updatedReview
+    });
+
+  } catch (error) {
+    console.error('Error updating guide review status:', error);
+    const statusCode = error.message.includes('not found') ? 404 : 500;
+    res.status(statusCode).json({
+      status: false,
+      error: error.message
+    });
+  }
+};
+
+
 module.exports = {
   getOptionalReviewRequests,
   updateRequestStatus,
-  getGuideStudentsForReview
+  getGuideStudentsForReview,
+  updateGuideReviewStatusController
 };

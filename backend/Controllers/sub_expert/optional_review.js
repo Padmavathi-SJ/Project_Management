@@ -1,7 +1,9 @@
 const {
     scheduleOptionalReview,
     getRequestDetailsById,
-  getSubExpertStudents
+  getSubExpertStudents,
+  updateSubExpertReviewStatus, 
+  getSubExpertReviewById
 } = require('../../Models/sub_expert/optional_review.js');
 
 const getSubExpertStudentsForReview = async (req, res) => {
@@ -100,7 +102,40 @@ const scheduleReview = async (req, res) => {
 };
 
 
+const updateSubExpertReviewStatusController = async (req, res) => {
+  try {
+    const { review_id, sub_expert_reg_num } = req.params;
+    const { status } = req.body;
+
+    if (!['Completed', 'Not completed', 'Rescheduled'].includes(status)) {
+      return res.status(400).json({
+        status: false,
+        error: 'Invalid status value'
+      });
+    }
+
+    await updateSubExpertReviewStatus(review_id, sub_expert_reg_num, status);
+    const updatedReview = await getSubExpertReviewById(review_id, sub_expert_reg_num);
+
+    res.json({
+      status: true,
+      message: 'Sub-expert review status updated successfully',
+      data: updatedReview
+    });
+
+  } catch (error) {
+    console.error('Error updating sub-expert review status:', error);
+    const statusCode = error.message.includes('not found') ? 404 : 500;
+    res.status(statusCode).json({
+      status: false,
+      error: error.message
+    });
+  }
+};
+
+
 module.exports = {
     getSubExpertStudentsForReview,
-    scheduleReview
+    scheduleReview,
+    updateSubExpertReviewStatusController
 }

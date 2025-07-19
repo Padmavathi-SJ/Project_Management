@@ -108,10 +108,48 @@ const getGuideStudents = (guide_reg_num) => {
   });
 };
 
+const updateGuideReviewStatus = (reviewId, guideRegNum, newStatus) => {
+  return new Promise((resolve, reject) => {
+    const query = `
+      UPDATE optional_review_schedules_byguide
+      SET status = ?
+      WHERE review_id = ? AND guide_reg_num = ?
+    `;
+    
+    db.query(query, [newStatus, reviewId, guideRegNum], (err, result) => {
+      if (err) return reject(err);
+      if (result.affectedRows === 0) {
+        return reject(new Error('No guide review found with the given ID and registration number'));
+      }
+      resolve(result);
+    });
+  });
+};
+
+const getGuideReviewById = (reviewId, guideRegNum) => {
+  return new Promise((resolve, reject) => {
+    const query = `
+      SELECT * FROM optional_review_schedules_byguide
+      WHERE review_id = ? AND guide_reg_num = ?
+    `;
+    
+    db.query(query, [reviewId, guideRegNum], (err, result) => {
+      if (err) return reject(err);
+      if (result.length === 0) {
+        return reject(new Error('Guide review not found'));
+      }
+      resolve(result[0]);
+    });
+  });
+};
+
+
 
 module.exports = {
   getRequestsByUser,
   updateRequestStatusModel,
   getApprovedOptionalRequests,
-  getGuideStudents
+  getGuideStudents,
+  updateGuideReviewStatus,
+  getGuideReviewById
 };

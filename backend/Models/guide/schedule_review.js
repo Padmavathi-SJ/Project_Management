@@ -79,8 +79,6 @@ const get_schedules_by_guide = (guide_reg_num) => {
     });
 };
 
-
-
 const updateReviewStatus = (reviewId, guideRegNum, newStatus) => {
   return new Promise((resolve, reject) => {
     const query = `

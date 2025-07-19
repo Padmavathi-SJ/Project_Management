@@ -83,7 +83,83 @@ const scheduleOptionalReview = (reviewData, userType) => {
   });
 };
 
+
+const getGuideReviews = (guide_reg_num) => {
+  return new Promise((resolve, reject) => {
+    const query = `
+      SELECT 
+        review_id,
+        team_id,
+        project_id,
+        student_reg_num,
+        semester,
+        review_type,
+        CONCAT(date, ' ', time) AS scheduled_time,
+        venue,
+        meeting_link,
+        status,
+        'guide' as user_role
+      FROM optional_review_schedules_byguide
+      WHERE guide_reg_num = ?
+      ORDER BY date DESC, time DESC
+    `;
+    
+    db.query(query, [guide_reg_num], (err, results) => {
+      if (err) return reject(err);
+      resolve(results);
+    });
+  });
+};
+
+const getSubExpertReviews = (sub_expert_reg_num) => {
+  return new Promise((resolve, reject) => {
+    const query = `
+      SELECT 
+        review_id,
+        team_id,
+        project_id,
+        student_reg_num,
+        semester,
+        review_type,
+        CONCAT(date, ' ', time) AS scheduled_time,
+        venue,
+        meeting_link,
+        status,
+        'sub_expert' as user_role
+      FROM optional_review_schedules_bysubexpert
+      WHERE sub_expert_reg_num = ?
+      ORDER BY date DESC, time DESC
+    `;
+    
+    db.query(query, [sub_expert_reg_num], (err, results) => {
+      if (err) return reject(err);
+      resolve(results);
+    });
+  });
+};
+
+const checkUserRole = (user_reg_num) => {
+  return new Promise((resolve, reject) => {
+    const query = `
+      SELECT 'guide' as role FROM optional_review_schedules_byguide WHERE guide_reg_num = ?
+      UNION
+      SELECT 'sub_expert' as role FROM optional_review_schedules_bysubexpert WHERE sub_expert_reg_num = ?
+      LIMIT 1
+    `;
+    
+    db.query(query, [user_reg_num, user_reg_num], (err, results) => {
+      if (err) return reject(err);
+      resolve(results.length > 0 ? results[0].role : null);
+    });
+  });
+};
+
+
+
 module.exports = {
     getRequestDetailsById,
-    scheduleOptionalReview
+    scheduleOptionalReview,
+     getGuideReviews,
+  getSubExpertReviews,
+  checkUserRole
 }

@@ -102,8 +102,47 @@ const scheduleOptionalReview = (reviewData) => {
   });
 };
 
+const updateSubExpertReviewStatus = (reviewId, subExpertRegNum, newStatus) => {
+  return new Promise((resolve, reject) => {
+    const query = `
+      UPDATE optional_review_schedules_bysubexpert
+      SET status = ?
+      WHERE review_id = ? AND sub_expert_reg_num = ?
+    `;
+    
+    db.query(query, [newStatus, reviewId, subExpertRegNum], (err, result) => {
+      if (err) return reject(err);
+      if (result.affectedRows === 0) {
+        return reject(new Error('No sub-expert review found with the given ID and registration number'));
+      }
+      resolve(result);
+    });
+  });
+};
+
+const getSubExpertReviewById = (reviewId, subExpertRegNum) => {
+  return new Promise((resolve, reject) => {
+    const query = `
+      SELECT * FROM optional_review_schedules_bysubexpert
+      WHERE review_id = ? AND sub_expert_reg_num = ?
+    `;
+    
+    db.query(query, [reviewId, subExpertRegNum], (err, result) => {
+      if (err) return reject(err);
+      if (result.length === 0) {
+        return reject(new Error('Sub-expert review not found'));
+      }
+      resolve(result[0]);
+    });
+  });
+};
+
+
+
 module.exports = {
     getSubExpertStudents,
     getRequestDetailsById,
-    scheduleOptionalReview
+    scheduleOptionalReview,
+    updateSubExpertReviewStatus,
+    getSubExpertReviewById
 }

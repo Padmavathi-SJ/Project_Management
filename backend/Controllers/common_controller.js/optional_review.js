@@ -1,8 +1,11 @@
 const {
     getRequestDetailsById,
-    scheduleOptionalReview
+    scheduleOptionalReview,
+     getGuideReviews,
+  getSubExpertReviews,
+  checkUserRole
 } = require('../../Models/common_models/optional_review.js');
-
+ 
 const scheduleReview = async (req, res) => {
   try {
     const { user_reg_num } = req.params;
@@ -73,6 +76,57 @@ const scheduleReview = async (req, res) => {
   }
 };
 
+const getOptionalReviews = async (req, res) => {
+  try {
+    const { user_reg_num } = req.params;
+
+    if (!user_reg_num) {
+      return res.status(400).json({
+        status: false,
+        error: "User registration number is required"
+      });
+    }
+
+    const role = await checkUserRole(user_reg_num);
+
+    if (!role) {
+      return res.status(404).json({
+        status: false,
+        error: "No reviews found for this user"
+      });
+    }
+
+    let reviews;
+    if (role === 'guide') {
+      reviews = await getGuideReviews(user_reg_num);
+    } else {
+      reviews = await getSubExpertReviews(user_reg_num);
+    }
+
+    if (reviews.length === 0) {
+      return res.status(404).json({
+        status: false,
+        error: "No reviews found for this user"
+      });
+    }
+
+    return res.json({
+      status: true,
+      user_type: role,
+      data: reviews
+    });
+
+  } catch (error) {
+    console.error("Error fetching optional reviews:", error);
+    return res.status(500).json({
+      status: false,
+      error: "Internal server error"
+    });
+  }
+};
+
+
 module.exports = {
-    scheduleReview
+    scheduleReview,
+    getOptionalReviews
 }

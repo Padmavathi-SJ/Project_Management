@@ -9,9 +9,17 @@ const {
 } = require('../Controllers/student/optional_review');
 
 const {
-  scheduleReview
+  scheduleReview,
+  getOptionalReviews
 } = require('../Controllers/common_controller.js/optional_review.js');
 
+const {
+  updateGuideReviewStatusController
+} = require('../Controllers/guide/optional_review.js');
+
+const {
+  updateSubExpertReviewStatusController
+} = require('../Controllers/sub_expert/optional_review.js');
 
 // Debug middleware (temporary)
 router.use((req, res, next) => {
@@ -25,7 +33,12 @@ router.post('/post-request', submitRequest);
 router.get('/projects/team/:team_id', getProjectByTeam);
 
 router.post('/schedule_review/:user_reg_num', scheduleReview);
-
+router.get('/get_scheduled_reviews/:user_reg_num', getOptionalReviews)
+router.patch('/guide/:review_id/status/:guide_reg_num',  updateGuideReviewStatusController);
+router.patch(
+  '/sub_expert/:review_id/status/:sub_expert_reg_num',
+  updateSubExpertReviewStatusController
+);
 
 // Admin routes
 router.get('/requests', fetchAllRequests);
