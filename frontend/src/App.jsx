@@ -54,6 +54,8 @@ import AwardMarks from './components/guide/AwardMarks';
 import StudentReviewProgress from "./components/Students/ReviewProgress";
 import OptionalReview from "./components/Students/OptionalReview";
 import OptionalReviewRequests from './components/guide/OptionalReviewRequests';
+import ScheduleOptionalReview from "./components/guide/schedule_optional_review";
+import SubExpertScheduleOptionalReview from './components/Subject_expert/schedule_optional_review';
 /*
 import GuideScheduleReview from './components/guide/schedule_review';
 import SubExpertScheduleReview from './components/Subject_expert/Schedule_review';
@@ -157,6 +159,7 @@ function App() {
               <Route path="schedule-review" element={<ReviewScheduling />} />
               <Route path="award-marks/:reg_num/team/:team_id" element={<AwardMarks />} />
               <Route path="optional_review_requests" element={<OptionalReviewRequests />}/>
+              <Route path="schedule_optional_review" element={<ScheduleOptionalReview />}/>
               
             </Route>
           </Route>
@@ -167,7 +170,7 @@ function App() {
             <Route index element={<SubjectExpertDashboard />} />
             <Route path="review" element={<Student_expert_review />} />
             <Route path="remarks" element={<Subject_expert_remarks />} />
-           {/* <Route path="schedule-review" element={<SubExpertScheduleReview />} /> */}
+            <Route path="schedule_optional_review" element={<SubExpertScheduleOptionalReview />}/>
           </Route>
 
           <Route path="*" element={<NotFound />} />

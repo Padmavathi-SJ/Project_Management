@@ -9,6 +9,14 @@ const ReviewScheduling = () => {
 
   // Function to handle option selection
   const handleOptionSelect = (option) => {
+    if (option === 'optionalGuide') {
+      navigate('/guide/schedule_optional_review');
+      return;
+    }
+    if (option === 'optionalSubExpert') {
+      navigate('/subject_expert/schedule_optional_review');
+      return;
+    }
     setSelectedOption(option);
   };
 
@@ -60,7 +68,15 @@ const ReviewScheduling = () => {
           className="p-6 border border-gray-300 rounded-lg cursor-pointer hover:bg-purple-50 hover:border-purple-300 transition-colors"
         >
           <h2 className="text-xl font-semibold text-purple-700 mb-2">Schedule Review as Guide</h2>
-          <p className="text-gray-600">Schedule reviews for teams you are guiding</p>
+          <p className="text-gray-600">Schedule regular reviews for teams you are guiding</p>
+        </div>
+        
+        <div 
+          onClick={() => handleOptionSelect('optionalGuide')}
+          className="p-6 border border-gray-300 rounded-lg cursor-pointer hover:bg-purple-50 hover:border-purple-300 transition-colors"
+        >
+          <h2 className="text-xl font-semibold text-purple-700 mb-2">Schedule Optional Review as Guide</h2>
+          <p className="text-gray-600">Schedule additional optional reviews for your teams</p>
         </div>
         
         <div 
@@ -69,6 +85,14 @@ const ReviewScheduling = () => {
         >
           <h2 className="text-xl font-semibold text-purple-700 mb-2">Schedule Review as Sub-Expert</h2>
           <p className="text-gray-600">Schedule reviews for teams you are assigned to as sub-expert</p>
+        </div>
+        
+        <div 
+          onClick={() => handleOptionSelect('optionalSubExpert')}
+          className="p-6 border border-gray-300 rounded-lg cursor-pointer hover:bg-purple-50 hover:border-purple-300 transition-colors"
+        >
+          <h2 className="text-xl font-semibold text-purple-700 mb-2">Schedule Optional Review as Sub-Expert</h2>
+          <p className="text-gray-600">Schedule additional optional reviews as sub-expert</p>
         </div>
         
         <button
