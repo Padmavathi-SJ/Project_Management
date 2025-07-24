@@ -30,7 +30,7 @@ const studentReviewRoutes = require('./Routes/student_routes.js');
 
 const marksRoutes = require('./Routes/review_marks.js');
 const optionalReviewRouter = require('./Routes/optionalReviewRoutes.js');
-
+const challendeReviewRouter = require('./Routes/challengeReviewRoutes.js');
 
 
 // Middleware
@@ -247,6 +247,7 @@ app.get("/api/user", authenticateJWT, (req, res, next) => {
 });
 
 app.use("/", studentReviewRoutes);
+app.use("/", challendeReviewRouter);
 //console.log("Student review routes mounted");
 
 // Mount routes
