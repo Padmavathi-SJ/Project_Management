@@ -1,16 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useLocation } from 'react-router-dom';
 import axios from '../../utils/axiosInstance';
 
 const AwardOptionalMarks = () => {
     const { reg_num, team_id } = useParams();
+    const location = useLocation();
+    const { reviewData } = location.state || {};
+    
     const [formData, setFormData] = useState({
-        semester: '',
-        review_type: '',
-        user_type: '',
-        student_reg_num: '',
+        semester: reviewData?.semester || '',
+        review_type: reviewData?.review_type || '',
+        user_type: reviewData?.user_role || '',
+        student_reg_num: reviewData?.student_reg_num || '',
         marks: {}
     });
+
     const [studentsWithOptionalReviews, setStudentsWithOptionalReviews] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -71,6 +75,15 @@ const AwardOptionalMarks = () => {
 
     // Fetch students who completed optional reviews
     useEffect(() => {
+          if (reviewData?.student_reg_num) {
+            setFormData(prev => ({
+                ...prev,
+                student_reg_num: reviewData.student_reg_num,
+                semester: reviewData.semester,
+                review_type: reviewData.review_type,
+                user_type: reviewData.user_role
+            }));
+        }
         const fetchStudentsWithOptionalReviews = async () => {
             try {
                 setLoading(true);
@@ -85,7 +98,7 @@ const AwardOptionalMarks = () => {
             }
         };
         fetchStudentsWithOptionalReviews();
-    }, [team_id]);
+    }, [team_id, reviewData]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -126,8 +139,8 @@ const AwardOptionalMarks = () => {
             };
 
             const endpoint = formData.user_type === 'guide' 
-                ? `/api/optional-review-marks/guide/${reg_num}/team/${team_id}/submit-optional-marks`
-                : `/api/optional-review-marks/sub-expert/${reg_num}/team/${team_id}/submit-optional-marks`;
+                ? `/api/optional-reviews/guide/${reg_num}/team/${team_id}/submit-optional-marks`
+                : `/api/optional-reviews/sub-expert/${reg_num}/team/${team_id}/submit-optional-marks`;
 
             const response = await axios.post(endpoint, payload);
 

@@ -47,8 +47,12 @@ const ReviewProgress = () => {
       
       if (response.data.status) {
         setReviewData(response.data.data);
-        // Check optional review eligibility
-        checkOptionalReviewEligibility(regNum, semester, reviewType);
+        // Only check optional eligibility if review is not completed
+        if (response.data.data.overall_status !== 'Completed') {
+          checkOptionalReviewEligibility(regNum, semester, reviewType);
+        } else {
+          setIsOptionalReviewEligible(false);
+        }
       } else {
         setError(response.data.error || 'No data found');
         setReviewData(null);
@@ -116,8 +120,18 @@ const ReviewProgress = () => {
       : 'bg-yellow-100 text-yellow-800';
   };
 
-  const getReviewTypeColor = (type) => {
-    return type === 'review-1' 
+  const getReviewTypeDisplay = (reviewType, marksSource) => {
+    if (marksSource === 'optional_review') {
+      return reviewType === 'review-1' ? 'Optional First Review' : 'Optional Second Review';
+    }
+    return reviewType === 'review-1' ? 'First Review' : 'Second Review';
+  };
+
+  const getReviewTypeColor = (reviewType, marksSource) => {
+    if (marksSource === 'optional_review') {
+      return 'bg-orange-100 text-orange-800';
+    }
+    return reviewType === 'review-1' 
       ? 'bg-blue-100 text-blue-800' 
       : 'bg-purple-100 text-purple-800';
   };
@@ -174,7 +188,7 @@ const ReviewProgress = () => {
         </button>
       </form>
 
-      {error && (
+       {error && (
         <div className="mb-6 p-4 bg-red-100 border-l-4 border-red-500 text-red-700">
           <p className="font-bold">Error</p>
           <p>{error}</p>
@@ -205,27 +219,29 @@ const ReviewProgress = () => {
               <div>
                 <p className="text-sm font-medium text-gray-500">Review Type</p>
                 <p className="mt-1">
-                  <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getReviewTypeColor(reviewData.review_type)}`}>
-                    {reviewData.review_type === 'review-1' ? 'First Review' : 'Second Review'}
+                  <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getReviewTypeColor(reviewData.review_type, reviewData.marks_source)}`}>
+                    {getReviewTypeDisplay(reviewData.review_type, reviewData.marks_source)}
                   </span>
                 </p>
               </div>
             </div>
             
-            {/* Optional Review Button */}
-            <div className="mt-4 flex justify-end">
-              <button
-                onClick={handleOptionalReviewClick}
-                disabled={!isOptionalReviewEligible || optionalReviewLoading}
-                className={`px-4 py-2 rounded-md text-white ${
-                  isOptionalReviewEligible 
-                    ? 'bg-purple-600 hover:bg-purple-700' 
-                    : 'bg-gray-400 cursor-not-allowed'
-                } focus:outline-none focus:ring-2 focus:ring-purple-500`}
-              >
-                {optionalReviewLoading ? 'Checking...' : 'Apply Optional Review'}
-              </button>
-            </div>
+            {/* Optional Review Button - Only show if review is not completed */}
+            {reviewData.overall_status !== 'Completed' && (
+              <div className="mt-4 flex justify-end">
+                <button
+                  onClick={handleOptionalReviewClick}
+                  disabled={!isOptionalReviewEligible || optionalReviewLoading}
+                  className={`px-4 py-2 rounded-md text-white ${
+                    isOptionalReviewEligible 
+                      ? 'bg-purple-600 hover:bg-purple-700' 
+                      : 'bg-gray-400 cursor-not-allowed'
+                  } focus:outline-none focus:ring-2 focus:ring-purple-500`}
+                >
+                  {optionalReviewLoading ? 'Checking...' : 'Apply Optional Review'}
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Status Cards */}
@@ -262,12 +278,19 @@ const ReviewProgress = () => {
                 </span>
               </div>
               {reviewData.overall_status === 'Completed' && (
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">Awarded Marks:</span>
-                  <span className="text-xl font-bold">
-                    {reviewData.awarded_marks ?? 'N/A'}
-                  </span>
-                </div>
+                <>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600">Awarded Marks:</span>
+                    <span className="text-xl font-bold">
+                      {reviewData.awarded_marks ?? 'N/A'}
+                    </span>
+                  </div>
+                  <div className="mt-2">
+                    <span className="text-sm text-gray-500">
+                      Source: {reviewData.marks_source === 'optional_review' ? 'Optional Review' : 'Regular Review'}
+                    </span>
+                  </div>
+                </>
               )}
             </div>
           </div>

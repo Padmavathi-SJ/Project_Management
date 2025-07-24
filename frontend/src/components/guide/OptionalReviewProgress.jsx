@@ -6,7 +6,7 @@ import instance from '../../utils/axiosInstance';
 const OptionalReviewProgress = () => {
   const userRegNum = useSelector((state) => state.userSlice?.reg_num);
   const [activeTab, setActiveTab] = useState('guide');
-  const [reviews, setReviews] = useState([]);
+  const [reviews, setReviews] = useState([]); // Added this line
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [updatingStatus, setUpdatingStatus] = useState(false);
@@ -43,34 +43,54 @@ const OptionalReviewProgress = () => {
     fetchOptionalReviews();
   }, [userRegNum]);
 
-  const handleStatusChange = async (reviewId, newStatus) => {
-    try {
-      setUpdatingStatus(true);
-      
-      const endpoint = `/api/optional-reviews/guide/${reviewId}/status/${userRegNum}`;
-      await instance.patch(endpoint, { status: newStatus });
-      
-      setReviews(prev => prev.map(review => 
-        review.review_id === reviewId ? { ...review, status: newStatus } : review
-      ));
-    } catch (err) {
-      console.error("Error updating status:", err);
-      setError(err.response?.data?.error || err.message || "Failed to update status");
-    } finally {
-      setUpdatingStatus(false);
-    }
-  };
+  // ... rest of your component code remains the same ...
 
-  const handleAwardMarks = (review) => {
-    navigate(`/optional-reviews/award-marks/${review.review_id}`, {
-      state: { 
-        teamId: review.team_id,
-        projectId: review.project_id,
-        reviewType: review.review_type,
-        semester: review.semester 
+const handleStatusChange = async (reviewId, newStatus) => {
+  try {
+    setUpdatingStatus(true);
+    
+    // Determine if it's a guide or sub-expert review by finding the review first
+    const reviewToUpdate = reviews.find(review => review.review_id === reviewId);
+    if (!reviewToUpdate) {
+      setError("Review not found");
+      return;
+    }
+
+    const isGuideReview = reviewToUpdate.user_role === 'guide';
+    const endpoint = isGuideReview 
+      ? `/api/optional-reviews/guide/${reviewId}/status/${userRegNum}`
+      : `/api/optional-reviews/sub_expert/${reviewId}/status/${userRegNum}`;
+
+    await instance.patch(endpoint, { status: newStatus });
+    
+    // Update the single reviews state
+    setReviews(prev => prev.map(review => 
+      review.review_id === reviewId ? { ...review, status: newStatus } : review
+    ));
+  } catch (err) {
+    console.error("Error updating status:", err);
+    setError(err.response?.data?.error || err.message || "Failed to update status");
+  } finally {
+    setUpdatingStatus(false);
+  }
+};
+
+const handleAwardMarks = (review) => {
+  // Determine the user role (guide or sub_expert) from the current tab
+  const userRole = activeTab === 'guide' ? 'guide' : 'sub_expert';
+  
+  navigate(`/guide/award_optional_marks/${userRegNum}/team/${review.team_id}`, {
+    state: {
+      reviewData: {
+        review_id: review.review_id,
+        student_reg_num: review.student_reg_num,
+        semester: review.semester,
+        review_type: review.review_type,
+        user_role: userRole
       }
-    });
-  };
+    }
+  });
+};
 
   const formatDateTime = (scheduledTime) => {
     try {
