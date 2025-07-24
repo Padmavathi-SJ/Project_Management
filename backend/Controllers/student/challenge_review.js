@@ -1,9 +1,12 @@
 // In your challenge_review.js controller file
-const AttendanceModel = require('../../Models/student/challenge_review.js'); // Adjust path as needed
+const {isStudentPresentInAllReviews, 
+    isChallengeReviewEnabled,
+    hasExistingRequest
+} = require('../../Models/student/challenge_review.js'); // Adjust path as needed
 
-const checkStudentAttendance = async (req, res) => {
-    try {
-        const { student_reg_num, semester } = req.params;
+
+const checkEligibility = async (req, res) => {
+    const {student_reg_num, semester} = req.params;
 
         if (!student_reg_num || !semester) {
             return res.status(400).json({
@@ -11,24 +14,48 @@ const checkStudentAttendance = async (req, res) => {
                 message: 'Student registration number and semester are required'
             });
         }
+    
+    try {
+        //check if challenge reviews are enabled
+        const isEnabled = await isChallengeReviewEnabled();
+        if (!isEnabled) {
+            return res.json({
+                isEligible: false,
+                error: "Challenge reviews are currently disabled by admin"
+            });
+        }
 
-        // Call the model function
-        const isPresent = await AttendanceModel.isStudentPresentInAllReviews(student_reg_num, semester);
-        
-        res.status(200).json({
-            success: true,
-            isPresentInAllReviews: isPresent
-        });
-    } catch (error) {
-        console.error('Error in checkStudentAttendance:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error checking student attendance',
-            error: error.message
-        });
-    }
+        //check is student is present is all reviews
+        const isPresent = await isStudentPresentInAllReviews(student_reg_num, semester);
+          if(!isPresent) {
+            return res.json({
+                isEligible: false,
+                error: "this student is absent in one or both reviews"
+            });
+          }
+
+          //check is student already has a request
+          const hasRequest = await hasExistingRequest(student_reg_num, semester);
+          if(hasRequest) {
+            return res.json({
+                isEligible: false,
+                error: "You have already submitted an challenge review request for this semester"
+            });
+          }
+
+          return res.json({
+            isEligible: true
+          });
+
+} catch (error) {
+console.log("Error checking eligibility: ", error);
+return res.status(500).json({
+    isEligible: false,
+    error: "Internal server error"
+})
 };
+}
 
 module.exports = {
-    checkStudentAttendance
+    checkEligibility
 };

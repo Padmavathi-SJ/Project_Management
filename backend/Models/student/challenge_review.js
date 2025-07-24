@@ -11,6 +11,21 @@ const isChallengeReviewEnabled = () => {
     });
 };
 
+const hasExistingRequest = (student_reg_num, semester) => {
+    const query = `
+    select count(*) from challenge_review_requests
+    where student_reg_num = ? and semester = ?
+    `;
+
+    return new Promise((resolve, reject) => {
+        db.query(query, [student_reg_num, semester], (err, result) => {
+            if(err) return reject(err);
+            resolve(result[0].count > 0);
+        })
+    })
+}
+
+
 const checkAttendanceInTable = (table, student_reg_num, semester, review_type) => {
     return new Promise((resolve, reject) => {
         const query = `
@@ -57,5 +72,7 @@ const isStudentPresentInAllReviews = (student_reg_num, semester) => {
 }
 
 module.exports = {
-    isStudentPresentInAllReviews
+    isStudentPresentInAllReviews,
+    isChallengeReviewEnabled,
+    hasExistingRequest
 }

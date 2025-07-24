@@ -247,7 +247,7 @@ app.get("/api/user", authenticateJWT, (req, res, next) => {
 });
 
 app.use("/", studentReviewRoutes);
-app.use("/", challendeReviewRouter);
+
 //console.log("Student review routes mounted");
 
 // Mount routes
@@ -261,6 +261,7 @@ app.use("/", uploadRouter);
 app.use("/", mentorRoute);
 app.use("/", generalRoute);
 app.use("/api/optional-reviews", optionalReviewRouter);
+app.use("/api/challenge-reviews", challendeReviewRouter);
 
 app.use("/api/guide", guideRoutes);
 app.use("/api/marks", marksRoutes);

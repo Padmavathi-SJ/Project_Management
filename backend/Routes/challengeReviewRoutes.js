@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const attendanceController = require('../Controllers/student/challenge_review.js');
+const {checkEligibility} = require('../Controllers/student/challenge_review.js');
 
-router.get('/:student_reg_num/:semester', attendanceController.checkStudentAttendance);
+router.get('/eligibility/:student_reg_num/:semester', checkEligibility);
 
 module.exports = router;
