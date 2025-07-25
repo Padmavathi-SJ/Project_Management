@@ -13,17 +13,20 @@ const isChallengeReviewEnabled = () => {
 
 const hasExistingRequest = (student_reg_num, semester) => {
     const query = `
-    select count(*) from challenge_review_requests
-    where student_reg_num = ? and semester = ?
+        SELECT COUNT(*) as count 
+        FROM challenge_review_requests
+        WHERE student_reg_num = ? AND semester = ?
     `;
 
     return new Promise((resolve, reject) => {
         db.query(query, [student_reg_num, semester], (err, result) => {
             if(err) return reject(err);
             resolve(result[0].count > 0);
-        })
-    })
-}
+        });
+    });
+};
+
+
 
 
 const checkAttendanceInTable = (table, student_reg_num, semester, review_type) => {
@@ -87,9 +90,78 @@ const fetchSemester = (student_reg_num) => {
     })
 }
 
+
+
+// Get project details by team_id
+const getProjectDetails = (team_id) => {
+    const query = `
+        SELECT project_id, project_type, cluster 
+        FROM projects 
+        WHERE team_id = ?
+        LIMIT 1
+    `;
+    return new Promise((resolve, reject) => {
+        db.query(query, [team_id], (err, result) => {
+            if (err) return reject(err);
+            resolve(result[0] || null);
+        });
+    });
+};
+
+// Get team members and guide info
+const getTeamDetails = (team_id) => {
+    const query = `
+        SELECT guide_reg_num, sub_expert_reg_num 
+        FROM teams 
+        WHERE team_id = ?
+        LIMIT 1
+    `;
+    return new Promise((resolve, reject) => {
+        db.query(query, [team_id], (err, result) => {
+            if (err) return reject(err);
+            resolve(result[0] || null);
+        });
+    });
+};
+
+// Submit challenge review request
+const submitChallengeReviewRequest = (requestData) => {
+    const query = `
+        INSERT INTO challenge_review_requests (
+            team_id, project_id, project_type, cluster, semester, 
+            review_type, student_reg_num, guide_reg_num, 
+            sub_expert_reg_num, request_reason, review_status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+    const values = [
+        requestData.team_id,
+        requestData.project_id,
+        requestData.project_type,
+        requestData.cluster,
+        requestData.semester,
+        requestData.review_type,
+        requestData.student_reg_num,
+        requestData.guide_reg_num,
+        requestData.sub_expert_reg_num,
+        requestData.request_reason,
+        'Not completed' // Default status
+    ];
+    
+    return new Promise((resolve, reject) => {
+        db.query(query, values, (err, result) => {
+            if (err) return reject(err);
+            resolve(result);
+        });
+    });
+};
+
+
 module.exports = {
     isStudentPresentInAllReviews,
     isChallengeReviewEnabled,
     hasExistingRequest,
-    fetchSemester
+    fetchSemester,
+    getProjectDetails,
+    getTeamDetails,
+    submitChallengeReviewRequest
 }
