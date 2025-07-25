@@ -7,92 +7,108 @@ const ChallengeReviewButton = () => {
   const user = useSelector((state) => state.userSlice);
   const navigate = useNavigate();
   
-  const [isEligible, setIsEligible] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [semester, setSemester] = useState(null);
+  const [eligibility, setEligibility] = useState({
+    status: 'checking', // 'checking', 'eligible', 'ineligible'
+    message: '',
+    semester: null
+  });
 
   useEffect(() => {
     if (user?.reg_num) {
-      fetchSemesterAndCheckEligibility();
+      checkEligibility();
     }
   }, [user?.reg_num]);
 
-  const fetchSemesterAndCheckEligibility = async () => {
-    if (!user?.reg_num) return;
-    
-    setIsLoading(true);
-    setError(null);
+  const checkEligibility = async () => {
+    setEligibility(prev => ({...prev, status: 'checking'}));
     
     try {
-      // First fetch the semester
-      const semesterResponse = await axiosInstance.get(
-        `/api/challenge-reviews/semester/${user.reg_num}`
-      );
+      // 1. Get semester first
+      const semesterRes = await axiosInstance.get(`/api/challenge-reviews/semester/${user.reg_num}`);
+      if (!semesterRes.data.success) throw new Error(semesterRes.data.message);
       
-      if (!semesterResponse.data.success) {
-        throw new Error(semesterResponse.data.message || 'Failed to fetch semester');
-      }
-      
-      const studentSemester = semesterResponse.data.semester;
-      setSemester(studentSemester);
+      const studentSemester = semesterRes.data.semester;
 
-      // Then check eligibility
-      const eligibilityResponse = await axiosInstance.get(
+      // 2. Check eligibility
+      const eligibilityRes = await axiosInstance.get(
         `/api/challenge-reviews/eligibility/${user.reg_num}/${studentSemester}`
       );
       
-      setIsEligible(eligibilityResponse.data.isEligible);
-      if (eligibilityResponse.data.error) {
-        setError(eligibilityResponse.data.error);
+      if (eligibilityRes.data.isEligible) {
+        setEligibility({
+          status: 'eligible',
+          message: '',
+          semester: studentSemester
+        });
+      } else {
+        setEligibility({
+          status: 'ineligible',
+          message: eligibilityRes.data.error || "Not eligible for challenge review",
+          semester: studentSemester
+        });
       }
     } catch (err) {
-      console.error('Error:', err);
-      const errorMessage = err.response?.data?.message || 
-                         err.response?.data?.error || 
-                         err.message || 
-                         'Failed to check eligibility';
-      setError(errorMessage);
-      setIsEligible(false);
-    } finally {
-      setIsLoading(false);
+      console.error('Error checking eligibility:', err);
+      setEligibility({
+        status: 'ineligible',
+        message: err.response?.data?.error || err.message || "Failed to check eligibility",
+        semester: null
+      });
     }
   };
 
-  const handleClick = () => {
-    if (!semester) {
-      setError('Semester information not available');
-      return;
-    }
-    
+  const handleApply = () => {
+    if (!eligibility.semester) return;
     navigate(`/student/apply_challenge_review/${user.reg_num}`, {
-      state: { semester }
+      state: { semester: eligibility.semester }
     });
   };
 
-  if (!isEligible && !isLoading) return null;
+  // Loading state
+  if (eligibility.status === 'checking') {
+    return (
+      <div className="absolute top-4 right-4 p-2 text-sm text-gray-600">
+        Checking eligibility...
+      </div>
+    );
+  }
 
-  return (
-    <div className="absolute top-4 right-4">
-      <button
-        onClick={handleClick}
-        disabled={isLoading || !isEligible || !semester}
-        className={`px-4 py-2 rounded-md text-white ${
-          isEligible && semester
-            ? 'bg-green-600 hover:bg-green-700' 
-            : 'bg-gray-400 cursor-not-allowed'
-        } focus:outline-none focus:ring-2 focus:ring-green-500`}
-      >
-        {isLoading ? 'Checking...' : 'Apply Challenge Review'}
-      </button>
-      
-      {error && (
-        <div className="mt-2 text-xs text-red-500">
-          {error}
-        </div>
-      )}
-    </div>
-  );
+  /*
+  // Already submitted case
+  if (eligibility.status === 'ineligible' && 
+      eligibility.message.includes("already submitted")) {
+    return (
+      <div className="absolute top-4 right-4 p-2 text-sm text-red-500">
+        You've already submitted a challenge review request
+      </div>
+    );
+  }
+
+  
+  // Other ineligible cases
+  if (eligibility.status === 'ineligible') {
+    return (
+      <div className="absolute top-4 right-4 p-2 text-sm text-red-500">
+        {eligibility.message}
+      </div>
+    );
+  }
+*/
+  // Only show button if eligible
+  if (eligibility.status === 'eligible') {
+    return (
+      <div className="absolute top-4 right-4">
+        <button
+          onClick={handleApply}
+          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+        >
+          Apply Challenge Review
+        </button>
+      </div>
+    );
+  }
+
+  return null;
 };
 
 export default ChallengeReviewButton;
