@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useParams, useNavigate } from 'react-router-dom';
+import ChallengeReviewButton from './challenge_review_button';
 
 const ReviewProgress = () => {
   const { student_reg_num, team_id } = useParams();
@@ -26,40 +27,27 @@ const ReviewProgress = () => {
   }, [student_reg_num, team_id]);
 
   const fetchReviewProgress = async (regNum, teamId, semester, reviewType) => {
-    if (!regNum || !teamId) {
-      setError('Student Registration Number and Team ID are required');
-      return;
-    }
-    
     setLoading(true);
     setError(null);
     
     try {
       const response = await axios.get(
         `http://localhost:5000/review-progress/${regNum}/${teamId}`, 
-        {
-          params: { 
-            semester, 
-            review_type: reviewType 
-          }
-        }
+        { params: { semester, review_type: reviewType } }
       );
       
       if (response.data.status) {
         setReviewData(response.data.data);
-        // Only check optional eligibility if review is not completed
         if (response.data.data.overall_status !== 'Completed') {
-          checkOptionalReviewEligibility(regNum, semester, reviewType);
+          await checkOptionalReviewEligibility(regNum, semester, reviewType);
         } else {
           setIsOptionalReviewEligible(false);
         }
       } else {
         setError(response.data.error || 'No data found');
-        setReviewData(null);
       }
     } catch (err) {
       setError(err.response?.data?.error || err.message || 'Failed to fetch data');
-      setReviewData(null);
     } finally {
       setLoading(false);
     }
@@ -70,20 +58,24 @@ const ReviewProgress = () => {
     try {
       const response = await axios.get(
         `http://localhost:5000/api/optional-reviews/eligibility/${regNum}`,
-        {
-          params: {
-            semester,
-            review_type: reviewType
-          }
-        }
+        { params: { semester, review_type: reviewType } }
       );
       setIsOptionalReviewEligible(response.data.isEligible);
     } catch (err) {
-      console.error('Error checking optional review eligibility:', err);
+      console.error('Optional review eligibility check failed:', err);
       setIsOptionalReviewEligible(false);
     } finally {
       setOptionalReviewLoading(false);
     }
+  };
+
+  const handleOptionalReviewClick = () => {
+    navigate(`/student/optional-review/${reviewData.student_reg_num}/${reviewData.team_id}`, {
+      state: {
+        semester: formData.semester,
+        reviewType: formData.reviewType
+      }
+    });
   };
 
   const handleChange = (e) => {
@@ -93,25 +85,13 @@ const ReviewProgress = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    setIsOptionalReviewEligible(false);
     fetchReviewProgress(
       formData.studentRegNum, 
       formData.teamId, 
       formData.semester, 
       formData.reviewType
     );
-  };
-
-  const handleOptionalReviewClick = () => {
-    if (reviewData && reviewData.student_reg_num && reviewData.team_id) {
-      navigate(`/student/optional-review/${reviewData.student_reg_num}/${reviewData.team_id}`, {
-        state: {
-          semester: formData.semester,
-          reviewType: formData.reviewType
-        }
-      });
-    } else {
-      console.error('Student registration number or team ID is missing');
-    }
   };
 
   const getStatusColor = (status) => {
@@ -138,6 +118,11 @@ const ReviewProgress = () => {
 
   return (
     <div className="container mx-auto p-4 max-w-6xl">
+      {/* Add ChallengeReviewButton at the top right */}
+      <div className="absolute top-4 right-4">
+        <ChallengeReviewButton />
+      </div>
+      
       <h2 className="text-2xl font-bold mb-6">Review Progress</h2>
       
       <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-6">
@@ -168,7 +153,6 @@ const ReviewProgress = () => {
           <option value="5">Semester 5</option>
           <option value="6">Semester 6</option>
           <option value="7">Semester 7</option>
-          <option value="8">Semester 8</option>
         </select>
         <select
           name="reviewType"
@@ -188,7 +172,7 @@ const ReviewProgress = () => {
         </button>
       </form>
 
-       {error && (
+      {error && (
         <div className="mb-6 p-4 bg-red-100 border-l-4 border-red-500 text-red-700">
           <p className="font-bold">Error</p>
           <p>{error}</p>
@@ -226,9 +210,10 @@ const ReviewProgress = () => {
               </div>
             </div>
             
-            {/* Optional Review Button - Only show if review is not completed */}
+            {/* Action Buttons - Only show if review is not completed */}
             {reviewData.overall_status !== 'Completed' && (
-              <div className="mt-4 flex justify-end">
+              <div className="mt-4 flex justify-end space-x-3">
+                {/* Optional Review Button */}
                 <button
                   onClick={handleOptionalReviewClick}
                   disabled={!isOptionalReviewEligible || optionalReviewLoading}

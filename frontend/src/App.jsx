@@ -58,6 +58,7 @@ import ScheduleOptionalReview from "./components/guide/schedule_optional_review"
 import SubExpertScheduleOptionalReview from "./components/Subject_expert/schedule_optional_review";
 import OptionalReviewProgress from "./components/guide/OptionalReviewProgress";
 import AwardOptionalMarks from "./components/guide/OptionalAwardMarks";
+import ApplyChallengeReview from './components/Students/apply_challenge_review';
 
 /*
 import GuideScheduleReview from './components/guide/schedule_review';
@@ -129,6 +130,7 @@ function App() {
                         path="optional-review/:student_reg_num/:team_id"
                         element={<OptionalReview />}
                       />
+                      <Route path="apply_challenge_review/:reg_num" element={<ApplyChallengeReview />}/>
                     </>
                   )}
                 </>
