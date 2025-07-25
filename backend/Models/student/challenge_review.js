@@ -71,8 +71,25 @@ const isStudentPresentInAllReviews = (student_reg_num, semester) => {
     })
 }
 
+const fetchSemester = (student_reg_num) => {
+    const query = `
+            select semester from users 
+            where reg_num = ? 
+            and role = 'student'
+            and semester in (5,6,7,8)
+            limit 1
+            `;
+    return new Promise((resolve, reject) => {
+        db.query(query, [student_reg_num], (err, result) => {
+            if(err) return reject(err);
+            resolve(result[0]?.semester);
+        })
+    })
+}
+
 module.exports = {
     isStudentPresentInAllReviews,
     isChallengeReviewEnabled,
-    hasExistingRequest
+    hasExistingRequest,
+    fetchSemester
 }
