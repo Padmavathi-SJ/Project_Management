@@ -3,13 +3,18 @@ const {
     getAvailablePMCReviewers,
     getUnassignedRequests,
     assignReviewers,
-    updateRequestStatus
+    updateRequestStatus,
+    getStaffCountsByDept
 } = require('../../Models/admin/challenge_review.js');
+
 
 // Get challenge review statistics for admin dashboard
 const getReviewStatistics = async (req, res) => {
     try {
-        const stats = await getChallengeReviewRequestsCount();
+        const [stats, staffCounts] = await Promise.all([
+            getChallengeReviewRequestsCount(),
+            getStaffCountsByDept()
+        ]);
         
         // Organize by dept
         const deptStats = {};
@@ -19,7 +24,8 @@ const getReviewStatistics = async (req, res) => {
                     dept: item.dept,
                     review1: 0,
                     review2: 0,
-                    total: 0
+                    total: 0,
+                    staffCount: staffCounts[item.dept] || 0
                 };
             }
             
@@ -102,10 +108,12 @@ const assignReviewersByRatio = async (req, res) => {
         // Save assignments to database
         await assignReviewers(assignments);
         
+       
         // Update request status
         const requestIds = requests.map(r => r.request_id);
         await updateRequestStatus(requestIds);
         
+
         res.status(200).json({
             success: true,
             message: `Successfully assigned reviewers to ${assignments.length} requests`,

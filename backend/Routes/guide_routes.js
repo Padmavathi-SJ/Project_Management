@@ -25,6 +25,8 @@ router.patch('/optional_review_requests/:request_id/status',  updateRequestStatu
 // Scheduling routes
 router.get('/students_for_review/:user_reg_num', getGuideStudentsForReview);
 
+// Update review status
+router.patch('/:guide_reg_num/review/:reviewId/status', updateGuideReviewStatus);
 
 // Other routes
 router.get('/:guide_reg_num/teams', fetch_teams);

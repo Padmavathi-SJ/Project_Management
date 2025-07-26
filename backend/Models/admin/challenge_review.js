@@ -122,11 +122,12 @@ const assignReviewers = (assignments) => {
     });
 };
 
-// Update request status to 'Completed' after assignment
+
+// Update request status to 'Approved' after assignment
 const updateRequestStatus = (request_ids) => {
     const query = `
         UPDATE challenge_review_requests
-        SET review_status = 'Completed'
+        SET request_status = 'approved'
         WHERE request_id IN (?)
     `;
     
@@ -138,10 +139,41 @@ const updateRequestStatus = (request_ids) => {
     });
 };
 
+// Get staff counts by department
+const getStaffCountsByDept = () => {
+    const query = `
+        SELECT 
+            dept, 
+            COUNT(*) as count
+        FROM 
+            users
+        WHERE 
+            role = 'staff'
+            AND available = 1
+        GROUP BY 
+            dept
+    `;
+    
+    return new Promise((resolve, reject) => {
+        db.query(query, (err, results) => {
+            if (err) return reject(err);
+            
+            // Convert array to object with dept as key
+            const counts = {};
+            results.forEach(row => {
+                counts[row.dept] = row.count;
+            });
+            resolve(counts);
+        });
+    });
+};
+
+
 module.exports = {
     getChallengeReviewRequestsCount,
     getAvailablePMCReviewers,
     getUnassignedRequests,
     assignReviewers,
-    updateRequestStatus
+    updateRequestStatus,
+    getStaffCountsByDept
 };
