@@ -59,6 +59,7 @@ import SubExpertScheduleOptionalReview from "./components/Subject_expert/schedul
 import OptionalReviewProgress from "./components/guide/OptionalReviewProgress";
 import AwardOptionalMarks from "./components/guide/OptionalAwardMarks";
 import ApplyChallengeReview from './components/Students/apply_challenge_review';
+import ChallengeReviewAssignment from './components/Admin/Challenge_review_assignment';
 
 /*
 import GuideScheduleReview from './components/guide/schedule_review';
@@ -168,7 +169,7 @@ function App() {
               />
               <Route
                 path="TimeLine/challenge-review"
-                element={<ChallengeReviewAdmin />}
+                element={<ChallengeReviewAssignment />}
               />
               <Route
                 path="timeline/assignguideexpert"
