@@ -10,7 +10,8 @@ const ChallengeReviewButton = () => {
   const [eligibility, setEligibility] = useState({
     status: 'checking', // 'checking', 'eligible', 'ineligible'
     message: '',
-    semester: null
+    semester: null,
+    enabledReviewTypes: [] // Track which review types are enabled
   });
 
   useEffect(() => {
@@ -23,44 +24,84 @@ const ChallengeReviewButton = () => {
     setEligibility(prev => ({...prev, status: 'checking'}));
     
     try {
-      // 1. Get semester first
+      // 1. First check which review types are enabled
+      const enabledTypesRes = await axiosInstance.get('/api/challenge-reviews/enabled-review-types');
+      const enabledTypes = enabledTypesRes.data.enabledReviewTypes || [];
+      
+      if (enabledTypes.length === 0) {
+        setEligibility({
+          status: 'ineligible',
+          message: '',
+          semester: null,
+          enabledReviewTypes: []
+        });
+        return;
+      }
+
+      // 2. Get semester
       const semesterRes = await axiosInstance.get(`/api/challenge-reviews/semester/${user.reg_num}`);
       if (!semesterRes.data.success) throw new Error(semesterRes.data.message);
       
       const studentSemester = semesterRes.data.semester;
 
-      // 2. Check eligibility
-      const eligibilityRes = await axiosInstance.get(
-        `/api/challenge-reviews/eligibility/${user.reg_num}/${studentSemester}`
-      );
+      // 3. Check eligibility for each enabled review type
+      let isEligible = false;
       
-      if (eligibilityRes.data.isEligible) {
+      // Check each enabled review type until we find one the student is eligible for
+      for (const reviewType of enabledTypes) {
+        try {
+          const eligibilityRes = await axiosInstance.get(
+            `/api/challenge-reviews/eligibility/${user.reg_num}/${studentSemester}/${reviewType}`
+          );
+          
+          if (eligibilityRes.data.isEligible) {
+            isEligible = true;
+            break;
+          }
+        } catch (err) {
+          console.error(`Error checking eligibility for ${reviewType}:`, err);
+        }
+      }
+
+      if (isEligible) {
         setEligibility({
           status: 'eligible',
           message: '',
-          semester: studentSemester
+          semester: studentSemester,
+          enabledReviewTypes: enabledTypes
         });
       } else {
         setEligibility({
           status: 'ineligible',
-          message: eligibilityRes.data.error || "Not eligible for challenge review",
-          semester: studentSemester
+          message: '',
+          semester: studentSemester,
+          enabledReviewTypes: enabledTypes
         });
       }
     } catch (err) {
       console.error('Error checking eligibility:', err);
       setEligibility({
         status: 'ineligible',
-        message: err.response?.data?.error || err.message || "Failed to check eligibility",
-        semester: null
+        message: '',
+        semester: null,
+        enabledReviewTypes: []
       });
     }
   };
 
   const handleApply = () => {
-    if (!eligibility.semester) return;
+    if (!eligibility.semester || eligibility.enabledReviewTypes.length === 0) return;
+    
+    // If only one review type is enabled, pass it directly
+    const reviewType = eligibility.enabledReviewTypes.length === 1 
+      ? eligibility.enabledReviewTypes[0]
+      : null;
+    
     navigate(`/student/apply_challenge_review/${user.reg_num}`, {
-      state: { semester: eligibility.semester }
+      state: { 
+        semester: eligibility.semester,
+        reviewType // Pass the review type if only one is enabled
+      }
     });
   };
 
@@ -73,28 +114,7 @@ const ChallengeReviewButton = () => {
     );
   }
 
-  /*
-  // Already submitted case
-  if (eligibility.status === 'ineligible' && 
-      eligibility.message.includes("already submitted")) {
-    return (
-      <div className="absolute top-4 right-4 p-2 text-sm text-red-500">
-        You've already submitted a challenge review request
-      </div>
-    );
-  }
-
-  
-  // Other ineligible cases
-  if (eligibility.status === 'ineligible') {
-    return (
-      <div className="absolute top-4 right-4 p-2 text-sm text-red-500">
-        {eligibility.message}
-      </div>
-    );
-  }
-*/
-  // Only show button if eligible
+  // Only show button if eligible, otherwise show nothing
   if (eligibility.status === 'eligible') {
     return (
       <div className="absolute top-4 right-4">
@@ -108,6 +128,7 @@ const ChallengeReviewButton = () => {
     );
   }
 
+  // For all other cases (ineligible, disabled, etc.), return null (show nothing)
   return null;
 };
 

@@ -6,11 +6,10 @@ const ApplyChallengeReview = () => {
     const navigate = useNavigate();
     const [formData, setFormData] = useState({
         semester: '',
-        review_type: 'review-1',
+        review_type: '',
         team_id: '',
         student_reg_num: '',
         request_reason: '',
-        // These will be auto-filled after fetching
         project_id: '',
         project_type: '',
         cluster: '',
@@ -21,27 +20,65 @@ const ApplyChallengeReview = () => {
     const [fetchingDetails, setFetchingDetails] = useState(false);
     const [error, setError] = useState(null);
     const [showDetails, setShowDetails] = useState(false);
+    const [enabledReviewTypes, setEnabledReviewTypes] = useState([]);
+
+    // Fetch enabled review types on component mount
+useEffect(() => {
+    const fetchEnabledTypes = async () => {
+        try {
+            const response = await axiosInstance.get('/api/challenge-reviews/enabled-review-types');
+            const enabledTypes = [];
+            
+            if (response.data.review1Enabled) enabledTypes.push('review-1');
+            if (response.data.review2Enabled) enabledTypes.push('review-2');
+            
+            setEnabledReviewTypes(enabledTypes);
+            
+            // Set default review type if only one is enabled
+            if (enabledTypes.length === 1) {
+                setFormData(prev => ({ ...prev, review_type: enabledTypes[0] }));
+            }
+        } catch (err) {
+            console.error('Error fetching enabled review types:', err);
+            setError('Failed to load challenge review options');
+        }
+    };
+    
+    fetchEnabledTypes();
+}, []);
 
     const handleFetchDetails = async (e) => {
         e.preventDefault();
-        if (!formData.team_id || !formData.student_reg_num) {
-            setError('Team ID and Student Registration Number are required');
+        if (!formData.team_id || !formData.student_reg_num || !formData.review_type) {
+            setError('Team ID, Student Registration Number and Review Type are required');
             return;
         }
 
         try {
             setFetchingDetails(true);
             setError(null);
+            
+            // First check eligibility
+            const eligibilityResponse = await axiosInstance.get(
+                `/api/challenge-reviews/eligibility/${formData.student_reg_num}/${formData.semester}/${formData.review_type}`
+            );
+            
+            if (!eligibilityResponse.data.isEligible) {
+                throw new Error(eligibilityResponse.data.error || 'Not eligible for challenge review');
+            }
+
+            // Then fetch form data if eligible
             const response = await axiosInstance.get(
                 `/api/challenge-reviews/form-data/${formData.team_id}`
             );
+            
             setFormData(prev => ({
                 ...prev,
                 ...response.data.data
             }));
             setShowDetails(true);
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to fetch team details');
+            setError(err.response?.data?.error || err.message || 'Failed to fetch details');
         } finally {
             setFetchingDetails(false);
         }
@@ -73,6 +110,28 @@ const ApplyChallengeReview = () => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
     };
+
+    // Don't render the form until we know which review types are enabled
+    if (enabledReviewTypes.length === 0 && !error) {
+        return (
+            <div className="container mx-auto p-4">
+                <h2 className="text-2xl font-bold mb-6">Apply for Challenge Review</h2>
+                <div className="text-center">Loading challenge review options...</div>
+            </div>
+        );
+    }
+
+    // If no review types are enabled (and we've finished loading)
+    if (enabledReviewTypes.length === 0) {
+        return (
+            <div className="container mx-auto p-4">
+                <h2 className="text-2xl font-bold mb-6">Apply for Challenge Review</h2>
+                <div className="bg-yellow-100 border-l-4 border-yellow-500 p-4">
+                    <p className="text-yellow-700">Challenge reviews are currently disabled by admin for all review types.</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="container mx-auto p-4">
@@ -112,10 +171,21 @@ const ApplyChallengeReview = () => {
                                 onChange={handleChange}
                                 required
                                 className="w-full p-2 border rounded"
+                                disabled={enabledReviewTypes.length === 1}
                             >
-                                <option value="review-1">First Review</option>
-                                <option value="review-2">Second Review</option>
+                                <option value="">Select Review Type</option>
+                                {enabledReviewTypes.includes('review-1') && (
+                                    <option value="review-1">First Review</option>
+                                )}
+                                {enabledReviewTypes.includes('review-2') && (
+                                    <option value="review-2">Second Review</option>
+                                )}
                             </select>
+                            {enabledReviewTypes.length === 1 && (
+                                <p className="text-sm text-gray-500 mt-1">
+                                    Only {enabledReviewTypes[0] === 'review-1' ? 'First' : 'Second'} Review challenges are currently available
+                                </p>
+                            )}
                         </div>
                         <div className="form-group">
                             <label className="block mb-1">Team ID *</label>
