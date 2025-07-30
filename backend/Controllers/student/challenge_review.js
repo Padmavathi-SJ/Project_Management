@@ -1,51 +1,51 @@
-// In your challenge_review.js controller file
-const {isStudentPresentInAllReviews, 
+const {
     isChallengeReviewEnabled,
     hasExistingRequest,
+    checkReviewTypeAttendance,
     fetchSemester,
     getProjectDetails,
     getTeamDetails,
-    submitChallengeReviewRequest
-} = require('../../Models/student/challenge_review.js'); // Adjust path as needed
-
+    submitChallengeReviewRequest,
+    getEnabledReviewTypes
+} = require('../../Models/student/challenge_review.js');
 
 const checkEligibility = async (req, res) => {
-    const {student_reg_num, semester} = req.params;
+    const {student_reg_num, semester, review_type} = req.params;
 
-    if (!student_reg_num || !semester) {
+    if (!student_reg_num || !semester || !review_type) {
         return res.status(400).json({
             success: false,
-            message: 'Student registration number, semester are required'
+            message: 'Student registration number, semester and review type are required'
         });
     }
 
     try {
-        // Check if challenge reviews are enabled
-        const isEnabled = await isChallengeReviewEnabled();
+        // Check if challenge reviews are enabled for this review type
+        const isEnabled = await isChallengeReviewEnabled(review_type);
         if (!isEnabled) {
             return res.status(403).json({
                 isEligible: false,
-                error: "Challenge reviews are currently disabled by admin"
+                error: `Challenge reviews are currently disabled for ${review_type} by admin`
             });
         }
 
-        // Check student attendance
-        const isPresent = await isStudentPresentInAllReviews(student_reg_num, semester);
+        // Check for existing request
+        const hasRequest = await hasExistingRequest(student_reg_num, semester);
+        if (hasRequest) {
+            return res.status(400).json({
+                isEligible: false,
+                error: `You have already submitted a challenge review request for this semester. Only one allowed.`
+            });
+        }
+
+        // Check attendance only for the requested review type
+        const isPresent = await checkReviewTypeAttendance(student_reg_num, semester, review_type);
         if(!isPresent) {
             return res.status(400).json({
                 isEligible: false,
-                error: "This student is absent in one or both reviews"
+                error: `This student is absent in ${review_type} review`
             });
         }
-
-        // Check for existing request (now includes review_type)
-        const hasRequest = await hasExistingRequest(student_reg_num, semester);
-       if (hasRequest) {
-    return res.status(400).json({
-        isEligible: false,
-        error: `You have already submitted a challenge review request for this semester. Only one allowed.`
-    });
-}
 
         return res.json({
             isEligible: true,
@@ -53,13 +53,14 @@ const checkEligibility = async (req, res) => {
         });
 
     } catch (error) {
-        console.log("Error checking eligibility: ", error);
+        console.error("Error checking eligibility: ", error);
         return res.status(500).json({
             isEligible: false,
             error: "Internal server error"
         });
     }
 };
+
 const getSemester = async (req, res) => {
     const { student_reg_num } = req.params;
     
@@ -130,8 +131,6 @@ const getRequestFormData = async (req, res) => {
     }
 };
 
-
-// Submit challenge review request
 const submitRequest = async (req, res) => {
     const { semester, student_reg_num, team_id, review_type } = req.params;
     const { request_reason } = req.body;
@@ -142,6 +141,15 @@ const submitRequest = async (req, res) => {
             return res.status(400).json({
                 success: false,
                 message: 'Request reason is required'
+            });
+        }
+
+        // Check if challenge review is enabled for this review type
+        const isEnabled = await isChallengeReviewEnabled(review_type);
+        if (!isEnabled) {
+            return res.status(403).json({
+                success: false,
+                message: `Challenge reviews are currently disabled for ${review_type} by admin`
             });
         }
 
@@ -189,9 +197,32 @@ const submitRequest = async (req, res) => {
     }
 };
 
+
+const fetchEnabledReviewTypes = async (req, res) => {
+    try {
+        const enabledTypes = await getEnabledReviewTypes();
+        
+        res.status(200).json({
+            success: true,
+            enabledReviewTypes: enabledTypes,
+            review1Enabled: enabledTypes.includes('review-1'),
+            review2Enabled: enabledTypes.includes('review-2')
+        });
+    } catch (error) {
+        console.error('Error fetching enabled review types:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch enabled review types'
+        });
+    }
+};
+
+
+
 module.exports = {
     checkEligibility,
     getSemester,
     getRequestFormData,
-    submitRequest
+    submitRequest,
+    fetchEnabledReviewTypes
 };
