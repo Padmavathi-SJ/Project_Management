@@ -117,7 +117,7 @@ function App() {
               />
               {teamselector ? (
                 <>
-                  <Route path="Project_Details" element={<Project_Details />} />
+                  <Route path="Project_Details/:team_id" element={<Project_Details />} />
                   {userselector?.guide_reg_num && (
                     <>
                       <Route path="queries" element={<Queries />} />

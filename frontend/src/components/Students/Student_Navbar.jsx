@@ -121,13 +121,13 @@ function Student_navbar({ isOpen, toggleSidebar }) {
         </Link>
 
         {teamSelector && !teamstatusSelector?.projectId && (
-  <Link
-    to="Project_Details"
-    className={`${navDiv("Project_Details")} group ${!hasTeam ? disabledClass : ""}`}
-  >
-    <FileText size={24} className={navIcon("Project_Details")} />
-    <p className={navText("Project_Details")}>Project Details</p>
-  </Link>
+<Link
+  to={`Project_Details/${teamSelector?.[0]?.team_id}`}
+  className={`${navDiv("Project_Details")} group ${!hasTeam ? disabledClass : ""}`}
+>
+  <FileText size={24} className={navIcon("Project_Details")} />
+  <p className={navText("Project_Details")}>Project Details</p>
+</Link>
 )}   
 
         <Link
