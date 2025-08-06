@@ -247,7 +247,7 @@ app.get("/api/user", authenticateJWT, (req, res, next) => {
     }
 });
 
-app.use("/", studentReviewRoutes);
+app.use("/student", studentReviewRoutes);
 
 //console.log("Student review routes mounted");
 

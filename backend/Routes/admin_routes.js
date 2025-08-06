@@ -1,11 +1,14 @@
 const express = require('express');
 const router = express.Router();
-const { getReviewStatistics, assignReviewersByRatio } = require('../Controllers/admin/challenge_review.js');
+const { 
+    getClusterStatistics,
+    assignReviewersByRatio
+} = require('../Controllers/admin/challenge_review.js');
 
-// Get challenge review statistics
-router.get('/challenge-review-assignment/statistics', getReviewStatistics);
+// Get cluster statistics for challenge reviews
+router.get('/statistics', getClusterStatistics);
 
 // Assign reviewers by ratio
-router.post('/challenge-review-assignment/assign', assignReviewersByRatio);
+router.post('/assign', assignReviewersByRatio);
 
 module.exports = router;

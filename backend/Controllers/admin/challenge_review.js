@@ -1,168 +1,139 @@
 const {
-    getChallengeReviewRequestsCount,
-    getAvailablePMCReviewers,
-    getUnassignedRequests,
+    getAvailableClusters,
+    getDepartmentsInCluster,
+    getAvailableStaffByCluster,
+    getUnassignedRequestsByCluster,
     assignReviewers,
     updateRequestStatus,
-    getStaffCountsByDept
+    getReviewStatisticsByCluster
 } = require('../../Models/admin/challenge_review.js');
 
-
-// Get challenge review statistics for admin dashboard
-const getReviewStatistics = async (req, res) => {
+// Get cluster statistics for challenge reviews
+const getClusterStatistics = async (req, res) => {
     try {
-        const [stats, staffCounts] = await Promise.all([
-            getChallengeReviewRequestsCount(),
-            getStaffCountsByDept()
-        ]);
+        const stats = await getReviewStatisticsByCluster();
+        const clusters = await getAvailableClusters();
         
-        // Organize by dept
-        const deptStats = {};
-        stats.forEach(item => {
-            if (!deptStats[item.dept]) {
-                deptStats[item.dept] = {
-                    dept: item.dept,
-                    review1: 0,
-                    review2: 0,
-                    total: 0,
-                    staffCount: staffCounts[item.dept] || 0
-                };
-            }
+        // Get departments for each cluster
+        const clusterData = await Promise.all(clusters.map(async cluster => {
+            const departments = await getDepartmentsInCluster(cluster);
+            const clusterStat = stats.find(stat => stat.cluster === cluster) || {
+                cluster,
+                review1: 0,
+                review2: 0,
+                total: 0
+            };
             
-            if (item.review_type === 'review-1') {
-                deptStats[item.dept].review1 = item.count;
-            } else {
-                deptStats[item.dept].review2 = item.count;
-            }
-            
-            deptStats[item.dept].total += item.count;
-        });
+            return {
+                ...clusterStat,
+                departments
+            };
+        }));
         
         res.status(200).json({
             success: true,
-            data: Object.values(deptStats)
+            data: clusterData
         });
     } catch (error) {
-        console.error('Error getting review statistics:', error);
+        console.error('Error getting cluster statistics:', error);
         res.status(500).json({
             success: false,
-            message: 'Failed to get review statistics'
+            message: 'Failed to get cluster statistics',
+            error: error.message
         });
     }
 };
 
-// Assign reviewers based on ratio
-
+// Assign reviewers by ratio
 const assignReviewersByRatio = async (req, res) => {
-    const { dept, review_type, ratio } = req.body;
+    const { cluster, review_type, ratio } = req.body;
     
     try {
         // Validate input
-        if (!dept || !review_type || !ratio || !ratio.students || !ratio.reviewers) {
+        if (!cluster || !review_type || !ratio || isNaN(ratio.requests) || isNaN(ratio.reviewers)) {
             return res.status(400).json({
                 success: false,
-                message: 'Department, review type, and ratio (students and reviewers) are required'
+                message: 'Cluster, review type, and ratio (requests and reviewers) are required'
             });
         }
         
-        // Get available PMC reviewers for this dept
-        const reviewers = await getAvailablePMCReviewers(dept);
-        console.log('Available reviewers:', reviewers);
-        
-        if (reviewers.length < 2) {
+        // Get available reviewer pairs for the cluster
+        const reviewerPairs = await getAvailableStaffByCluster(cluster);
+        if (reviewerPairs.length === 0) {
             return res.status(400).json({
                 success: false,
-                message: `Not enough available reviewers in ${dept} department (found ${reviewers.length}, need at least 2)`,
-                available_reviewers: reviewers
+                message: `No available reviewer pairs found in cluster ${cluster}`
+            });
+        }
+        
+        // Calculate how many requests we can assign based on the ratio
+        const requestsToAssign = ratio.requests * Math.floor(reviewerPairs.length / ratio.reviewers);
+        if (requestsToAssign <= 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Not enough reviewer pairs for the requested ratio'
             });
         }
         
         // Get unassigned requests
-        const requests = await getUnassignedRequests(
-            dept, 
+        const requests = await getUnassignedRequestsByCluster(
+            cluster, 
             review_type, 
-            ratio.students
+            requestsToAssign
         );
         
         if (requests.length === 0) {
             return res.status(400).json({
                 success: false,
-                message: 'No unassigned requests found for this department and review type'
+                message: 'No unassigned requests found for this cluster and review type'
             });
         }
         
         // Prepare assignments
-        const assignments = requests.map((request, index) => {
-            // Alternate between reviewer pairs if we have more than 2
-            const reviewerPairIndex = Math.floor(index / ratio.students) * 2;
-            const pmc1 = reviewers[reviewerPairIndex % reviewers.length];
-            const pmc2 = reviewers[(reviewerPairIndex + 1) % reviewers.length];
+        const assignments = [];
+        const assignmentsPerPair = Math.floor(requests.length / ratio.reviewers);
+        
+        for (let i = 0; i < requests.length; i++) {
+            const pairIndex = Math.floor(i / assignmentsPerPair) % reviewerPairs.length;
+            const pair = reviewerPairs[pairIndex];
             
-            return {
-                ...request,
-                pmc1_reg_num: pmc1.reg_num,
-                pmc2_reg_num: pmc2.reg_num
-            };
-        });
+            assignments.push({
+                ...requests[i],
+                pmc1_reg_num: pair.pmc1.reg_num,  // Junior as PMC1
+                pmc2_reg_num: pair.pmc2.reg_num   // Senior as PMC2
+            });
+        }
         
         // Save assignments to database
         await assignReviewers(assignments);
         
-       
         // Update request status
         const requestIds = requests.map(r => r.request_id);
         await updateRequestStatus(requestIds);
         
-
         res.status(200).json({
             success: true,
-            message: `Successfully assigned reviewers to ${assignments.length} requests`,
+            message: `Successfully assigned ${assignments.length} requests using ${reviewerPairs.length} reviewer pairs`,
             data: {
-                assignments,
-                ratioUsed: `${ratio.students}:${ratio.reviewers}`
+                cluster,
+                review_type,
+                ratio_applied: `${ratio.requests} requests : ${ratio.reviewers} reviewer pairs`,
+                assignments_made: assignments.length,
+                reviewer_pairs_used: reviewerPairs.length
             }
         });
         
     } catch (error) {
-        console.error('Detailed error:', {
-            message: error.message,
-            stack: error.stack,
-            sql: error.sql
-        });
+        console.error('Error in reviewer assignment:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to assign reviewers',
-            error: error.message,
-            sqlError: error.sqlMessage
+            error: error.message
         });
     }
 };
 
-// Helper function to get count of unassigned requests
-const getUnassignedRequestsCount = async (dept, review_type) => {
-    const query = `
-        SELECT COUNT(*) as count
-        FROM challenge_review_requests crr
-        LEFT JOIN challenge_review_reviewers_assignment cra ON (
-            crr.student_reg_num = cra.student_reg_num 
-            AND crr.semester = cra.semester
-            AND crr.review_type = cra.review_type
-        )
-        WHERE crr.cluster = ?
-        AND crr.review_type = ?
-        AND crr.review_status = 'Not completed'
-        AND cra.assignment_id IS NULL
-    `;
-    
-    return new Promise((resolve, reject) => {
-        db.query(query, [dept, review_type], (err, results) => {
-            if (err) return reject(err);
-            resolve(results[0].count);
-        });
-    });
-};
-
 module.exports = {
-    getReviewStatistics,
+    getClusterStatistics,
     assignReviewersByRatio
 };

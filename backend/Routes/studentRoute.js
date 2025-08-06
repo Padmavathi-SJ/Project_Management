@@ -1028,8 +1028,10 @@ router.post("/student/addproject/:project_type/:team_id/:reg_num", userAuth, (re
     let { project_type, reg_num, team_id } = req.params;
     let { project_name, cluster, description, outcome, hard_soft } = req.body;
 
+    // Input validation and sanitization
     project_type = project_type.toLowerCase();
     hard_soft = hard_soft.toLowerCase();
+    cluster = cluster.toUpperCase(); // Ensure uppercase for mapping
 
     const validTypes = ['internal', 'external', 'hardware', 'software'];
 
@@ -1037,60 +1039,82 @@ router.post("/student/addproject/:project_type/:team_id/:reg_num", userAuth, (re
       return res.status(400).json({ message: "Required fields are missing." });
     }
 
-    if (!validTypes.includes(project_type) || !validTypes.includes(hard_soft)) return next(createError.BadRequest("invalid project_type"))
+    if (!validTypes.includes(project_type) || !validTypes.includes(hard_soft)) {
+      return next(createError.BadRequest("Invalid project type"));
+    }
 
-    // checks whether he is a team_leader -> to post project
+    // Map cluster to standardized names
+    const clusterMapping = {
+      'AERO': 'cluster-1', 'AUTO': 'cluster-1', 'MECH': 'cluster-1', 'MTRS': 'cluster-1',
+      'AGRI': 'cluster-2', 'CIVIL': 'cluster-2',
+      'BIO': 'cluster-3', 'FOOD': 'cluster-3',
+      'EEE': 'cluster-4', 'ECE': 'cluster-4', 'EIE': 'cluster-4', 'BM': 'cluster-4',
+      'CSE': 'cluster-5', 'IT': 'cluster-5', 'AIML': 'cluster-5', 'AIDS': 'cluster-5', 
+      'CT': 'cluster-5', 'CSD': 'cluster-5', 'ISE': 'cluster-5', 'CSBS': 'cluster-5',
+      'TXT': 'cluster-6', 'FT': 'cluster-6'
+    };
 
-    let query = "select is_leader from teams where team_id = ? and reg_num = ?";
-    db.query(query, [team_id, reg_num], (error, result) => {
-      if (error) return next(error);
-      if (result.length === 0) return next(createError.BadRequest("You are not a TEAM LEADER!"));
-      if (result.length > 1) return next(createError.BadRequest("You have more than one team!"));
+    const mappedCluster = clusterMapping[cluster] || cluster;
 
-      // checks whether he already posted projects
-
-      let query1 = "select * from projects where tl_reg_num = ?";
-      db.query(query1, [reg_num], (error, result) => {
+    // Check if user is team leader
+    db.query("SELECT is_leader FROM teams WHERE team_id = ? AND reg_num = ?", 
+      [team_id, reg_num], 
+      (error, result) => {
         if (error) return next(error);
-        if (result.length > 0) return next(createError.BadRequest("The team already posted a project!"));
-
-        // geneating project_id
-
-        const sql = "SELECT COUNT(*) AS count FROM projects";
-        db.query(sql, (error, result) => {
+        if (result.length === 0) return next(createError.BadRequest("You are not a team leader"));
+        
+        // Check for existing project
+        db.query("SELECT * FROM projects WHERE tl_reg_num = ?", [reg_num], (error, result) => {
           if (error) return next(error);
+          if (result.length > 0) return next(createError.BadRequest("Team already has a project"));
 
-          const project_length = result[0].count + 1;
-          const project_id = `P${String(project_length).padStart(4, "0")}`;
-
-          // inserting into projects
-
-          const sql1 = ` INSERT INTO projects (project_id,project_name,project_type,cluster,description,outcome,hard_soft,tl_reg_num,team_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-          const values = [project_id, project_name, project_type, cluster, description, outcome, hard_soft, reg_num, team_id];
-          db.query(sql1, values, (error, result) => {
+          // Generate project ID
+          db.query("SELECT COUNT(*) AS count FROM projects", (error, result) => {
             if (error) return next(error);
-            if (result.affectedRows === 0) return next(createError.BadRequest("an error occured silently!"));
-
-            // inserts the project_id to the team in teams table
-            let insertSql = "UPDATE teams SET project_id = ? WHERE team_id = ?";
-            db.query(insertSql, [project_id, team_id], (error, result) => {
-              if (error) return next(error);
-              if (result.affectedRows === 0) return next(createError.BadRequest("no rows inserted!"));
-              res.json({
-                "message": "project added successfully!",
-                "team_id": team_id,
-                "project_id": project_id,
-                "project_name": project_name
-              });
-
-            })
-          })
+            
+            const project_id = `P${String(result[0].count + 1).padStart(4, "0")}`;
+            
+            // Insert project with mapped cluster
+            const insertQuery = `
+              INSERT INTO projects 
+              (project_id, project_name, project_type, cluster, description, outcome, hard_soft, tl_reg_num, team_id) 
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+              
+            const values = [
+              project_id, project_name, project_type, mappedCluster, 
+              description, outcome, hard_soft, reg_num, team_id
+            ];
+            
+            db.query(insertQuery, values, (error, result) => {
+              if (error) {
+                console.error("Database error:", error);
+                return next(createError.InternalServerError("Failed to create project"));
+              }
+              
+              // Update team with project ID
+              db.query("UPDATE teams SET project_id = ? WHERE team_id = ?", 
+                [project_id, team_id], 
+                (error, result) => {
+                  if (error) {
+                    console.error("Database error:", error);
+                    return next(createError.InternalServerError("Failed to update team"));
+                  }
+                  
+                  res.json({
+                    message: "Project added successfully!",
+                    team_id,
+                    project_id,
+                    project_name,
+                    cluster: mappedCluster
+                  });
+                });
+            });
+          });
         });
-      })
-
-    })
+      });
   } catch (error) {
-    next(error.message);
+    console.error("Unexpected error:", error);
+    next(createError.InternalServerError("An unexpected error occurred"));
   }
 });
 

@@ -1,34 +1,50 @@
 const db = require('../../db.js');
 
-// Get challenge review requests count by dept and review type
-const getChallengeReviewRequestsCount = () => {
+// Get all available clusters
+const getAvailableClusters = () => {
     const query = `
-        SELECT 
-            cluster as dept, 
-            review_type, 
-            COUNT(*) as count
-        FROM 
-            challenge_review_requests
-        WHERE 
-            review_status = 'Not completed'
-        GROUP BY 
-            cluster, review_type
+        SELECT DISTINCT cluster 
+        FROM users 
+        WHERE cluster IS NOT NULL
+        AND role = 'staff'
+        AND available = 1
     `;
     
     return new Promise((resolve, reject) => {
         db.query(query, (err, results) => {
             if (err) return reject(err);
-            resolve(results);
+            resolve(results.map(row => row.cluster));
         });
     });
 };
 
-// Get available PMC reviewers by dept
-const getAvailablePMCReviewers = (dept) => {
+// Get departments in a cluster
+const getDepartmentsInCluster = (cluster) => {
+    const query = `
+        SELECT DISTINCT dept 
+        FROM users 
+        WHERE cluster = ?
+        AND role = 'staff'
+        AND available = 1
+    `;
+    
+    return new Promise((resolve, reject) => {
+        db.query(query, [cluster], (err, results) => {
+            if (err) return reject(err);
+            resolve(results.map(row => row.dept));
+        });
+    });
+};
+
+// Get available staff by cluster with seniority pairing
+const getAvailableStaffByCluster = (cluster) => {
     const query = `
         SELECT 
             u.reg_num, 
             u.name,
+            u.dept,
+            u.staff_designation,
+            u.seniority_level,
             COUNT(cra.assignment_id) as current_assignments
         FROM 
             users u
@@ -38,24 +54,48 @@ const getAvailablePMCReviewers = (dept) => {
             )
         WHERE 
             u.role = 'staff' 
-            AND u.dept = ?
+            AND u.cluster = ?
             AND u.available = 1
         GROUP BY 
-            u.reg_num, u.name
+            u.reg_num, u.name, u.dept, u.staff_designation, u.seniority_level
         ORDER BY 
-            current_assignments ASC
+            u.seniority_level ASC
     `;
     
     return new Promise((resolve, reject) => {
-        db.query(query, [dept], (err, results) => {
+        db.query(query, [cluster], (err, results) => {
             if (err) return reject(err);
-            resolve(results);
+            
+            // Pair senior and junior staff
+            const pairedReviewers = [];
+            const sortedReviewers = [...results].sort((a, b) => a.seniority_level - b.seniority_level);
+            
+            // Create pairs by matching highest seniority with lowest
+            while (sortedReviewers.length >= 2) {
+                const senior = sortedReviewers.pop(); // Highest seniority
+                const junior = sortedReviewers.shift(); // Lowest seniority
+                pairedReviewers.push({
+                    pmc1: junior,  // Junior as PMC1
+                    pmc2: senior    // Senior as PMC2
+                });
+            }
+            
+            // If odd number, add remaining as a single reviewer pair
+            if (sortedReviewers.length === 1) {
+                const remaining = sortedReviewers[0];
+                pairedReviewers.push({
+                    pmc1: remaining,
+                    pmc2: remaining
+                });
+            }
+            
+            resolve(pairedReviewers);
         });
     });
 };
 
-// Get unassigned challenge review requests by dept and review type
-const getUnassignedRequests = (dept, review_type, limit) => {
+// Get unassigned challenge review requests by cluster and review type
+const getUnassignedRequestsByCluster = (cluster, review_type, limit) => {
     const query = `
         SELECT 
             crr.request_id,
@@ -77,12 +117,13 @@ const getUnassignedRequests = (dept, review_type, limit) => {
             crr.cluster = ?
             AND crr.review_type = ?
             AND crr.review_status = 'Not completed'
+            AND crr.request_status = 'approved'
             AND cra.assignment_id IS NULL
         LIMIT ?
     `;
     
     return new Promise((resolve, reject) => {
-        db.query(query, [dept, review_type, limit], (err, results) => {
+        db.query(query, [cluster, review_type, limit], (err, results) => {
             if (err) return reject(err);
             resolve(results);
         });
@@ -90,9 +131,7 @@ const getUnassignedRequests = (dept, review_type, limit) => {
 };
 
 // Assign reviewers to requests
-
 const assignReviewers = (assignments) => {
-    // Fix the table name (was missing an 'e' in "challenge_review_reviewers_assignment")
     const query = `
         INSERT INTO challenge_review_reviewers_assignment (
             semester, team_id, project_id, project_type, review_type,
@@ -122,12 +161,11 @@ const assignReviewers = (assignments) => {
     });
 };
 
-
-// Update request status to 'Approved' after assignment
+// Update request status after assignment
 const updateRequestStatus = (request_ids) => {
     const query = `
         UPDATE challenge_review_requests
-        SET request_status = 'approved'
+        SET review_status = 'Assigned'
         WHERE request_id IN (?)
     `;
     
@@ -139,41 +177,58 @@ const updateRequestStatus = (request_ids) => {
     });
 };
 
-// Get staff counts by department
-const getStaffCountsByDept = () => {
+// Get challenge review statistics by cluster
+const getReviewStatisticsByCluster = () => {
     const query = `
         SELECT 
-            dept, 
+            cluster,
+            review_type, 
             COUNT(*) as count
         FROM 
-            users
+            challenge_review_requests
         WHERE 
-            role = 'staff'
-            AND available = 1
+            review_status = 'Not completed'
+            AND request_status = 'approved'
         GROUP BY 
-            dept
+            cluster, review_type
     `;
     
     return new Promise((resolve, reject) => {
         db.query(query, (err, results) => {
             if (err) return reject(err);
             
-            // Convert array to object with dept as key
-            const counts = {};
-            results.forEach(row => {
-                counts[row.dept] = row.count;
+            // Organize by cluster
+            const clusterStats = {};
+            results.forEach(item => {
+                if (!clusterStats[item.cluster]) {
+                    clusterStats[item.cluster] = {
+                        cluster: item.cluster,
+                        review1: 0,
+                        review2: 0,
+                        total: 0
+                    };
+                }
+                
+                if (item.review_type === 'review-1') {
+                    clusterStats[item.cluster].review1 = item.count;
+                } else {
+                    clusterStats[item.cluster].review2 = item.count;
+                }
+                
+                clusterStats[item.cluster].total += item.count;
             });
-            resolve(counts);
+            
+            resolve(Object.values(clusterStats));
         });
     });
 };
 
-
 module.exports = {
-    getChallengeReviewRequestsCount,
-    getAvailablePMCReviewers,
-    getUnassignedRequests,
+    getAvailableClusters,
+    getDepartmentsInCluster,
+    getAvailableStaffByCluster,
+    getUnassignedRequestsByCluster,
     assignReviewers,
     updateRequestStatus,
-    getStaffCountsByDept
+    getReviewStatisticsByCluster
 };
