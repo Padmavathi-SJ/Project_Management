@@ -3,7 +3,7 @@ const {
     hasExistingRequest,
     checkReviewTypeAttendance,
     fetchSemester,
-    getProjectDetails,
+    getProjectDetailsWithCluster,
     getTeamDetails,
     submitChallengeReviewRequest,
     getEnabledReviewTypes
@@ -100,7 +100,7 @@ const getRequestFormData = async (req, res) => {
 
     try {
         const [projectDetails, teamDetails] = await Promise.all([
-            getProjectDetails(team_id),
+            getProjectDetailsWithCluster(team_id),
             getTeamDetails(team_id)
         ]);
 
@@ -155,7 +155,7 @@ const submitRequest = async (req, res) => {
 
         // Get all required data
         const [projectDetails, teamDetails] = await Promise.all([
-            getProjectDetails(team_id),
+            getProjectDetailsWithCluster(team_id),
             getTeamDetails(team_id)
         ]);
 

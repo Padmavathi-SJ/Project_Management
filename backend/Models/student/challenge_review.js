@@ -79,17 +79,20 @@ const fetchSemester = (student_reg_num) => {
     });
 };
 
-const getProjectDetails = (team_id) => {
+const getProjectDetailsWithCluster = async (team_id) => {
     const query = `
-        SELECT project_id, project_type, cluster 
-        FROM projects 
-        WHERE team_id = ?
+        SELECT p.project_id, p.project_type, p.cluster 
+        FROM projects p
+        WHERE p.team_id = ?
         LIMIT 1
     `;
     return new Promise((resolve, reject) => {
         db.query(query, [team_id], (err, result) => {
             if (err) return reject(err);
-            resolve(result[0] || null);
+            if (!result || result.length === 0) {
+                return reject(new Error('No project found for this team'));
+            }
+            resolve(result[0]);
         });
     });
 };
@@ -109,7 +112,11 @@ const getTeamDetails = (team_id) => {
     });
 };
 
-const submitChallengeReviewRequest = (requestData) => {
+const submitChallengeReviewRequest = async (requestData) => {
+    try{
+
+        const project = await getProjectDetailsWithCluster(requestData.team_id);
+
     const query = `
         INSERT INTO challenge_review_requests (
             team_id, project_id, project_type, cluster, semester, 
@@ -119,9 +126,9 @@ const submitChallengeReviewRequest = (requestData) => {
     `;
     const values = [
         requestData.team_id,
-        requestData.project_id,
-        requestData.project_type,
-        requestData.cluster,
+        project.project_id,
+        project.project_type,
+        project.cluster,
         requestData.semester,
         requestData.review_type,
         requestData.student_reg_num,
@@ -137,6 +144,9 @@ const submitChallengeReviewRequest = (requestData) => {
             resolve(result);
         });
     });
+} catch (error) {
+    throw error;
+}
 };
 
 
@@ -166,7 +176,7 @@ module.exports = {
     hasExistingRequest,
     checkReviewTypeAttendance,
     fetchSemester,
-    getProjectDetails,
+    getProjectDetailsWithCluster,
     getTeamDetails,
     submitChallengeReviewRequest,
     getEnabledReviewTypes
