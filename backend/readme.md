@@ -15,7 +15,8 @@
 --> challenge review process:
 --> challenge reviews will be enabled for review by review (review-1 , after completing review-1 review-2 will be enabled)by admin. so we will conduct challenge reviews for review by review(1.review-1, 2.review-2).
 --> challenge_review requests done by students --> this module is already completed.
---> now need to assign reviewers process :
+--> now need to assign reviewers:
+ process :
   --> staffs have their designation like --> 'head','professor','Associate Professor','Assistant professor level III','assistant professor level II','assistant professor level I','assistant professor', we have clusters, each cluster have set of departments.
 --> ex: challenge_review requests for review-1, from cluster-5(CS departments) --> need to asign PMC1(reviewer-1), PMC2(reviewer-2) from the custer-5 as 1 junior(PMC1), 1 senior(PMC2) --> like head-assistant professor, professor-assistant professor level I, associate professor-assistant professor level II and like wise---> a staff from ascending-1 staff from descending --> in the case of staffs in the equal designation--> just asign reviewer-1 and reviewer-2 from the same designation.
 --> reviewer assignment will be done by ratio --> for 5 requests from cluster-1- 1 PMC1, 2 PMC2 --> this ratio will be selected by admin--> so that for that 5 requests 1 pair of reviewers will be assigned.

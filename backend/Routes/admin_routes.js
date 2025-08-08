@@ -1,14 +1,22 @@
 const express = require('express');
 const router = express.Router();
-const { 
-    getClusterStatistics,
-    assignReviewersByRatio
+const {
+    getAssignmentStatus,
+    assignReviewersBatch,
+    getClusterPendingRequests,
+    getClusterAvailableStaff
 } = require('../Controllers/admin/challenge_review.js');
 
-// Get cluster statistics for challenge reviews
-router.get('/statistics', getClusterStatistics);
+// Get current assignment status
+router.get('/status', getAssignmentStatus);
 
-// Assign reviewers by ratio
-router.post('/assign', assignReviewersByRatio);
+// Assign reviewers to requests with admin-selected ratio
+router.post('/assign', assignReviewersBatch);
+
+// Get pending requests for a cluster
+router.get('/cluster-requests/:cluster', getClusterPendingRequests);
+
+// Get available staff for a cluster
+router.get('/cluster-staff/:cluster', getClusterAvailableStaff);
 
 module.exports = router;

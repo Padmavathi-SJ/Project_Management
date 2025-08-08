@@ -1,139 +1,151 @@
 const {
-    getAvailableClusters,
-    getDepartmentsInCluster,
-    getAvailableStaffByCluster,
-    getUnassignedRequestsByCluster,
-    assignReviewers,
-    updateRequestStatus,
-    getReviewStatisticsByCluster
+    getEnabledReviewType,
+    getPendingRequests,
+    getAvailableStaffForCluster,
+    assignReviewersInBatch
 } = require('../../Models/admin/challenge_review.js');
 
-// Get cluster statistics for challenge reviews
-const getClusterStatistics = async (req, res) => {
+// Get current status of challenge review assignments
+const getAssignmentStatus = async (req, res) => {
     try {
-        const stats = await getReviewStatisticsByCluster();
-        const clusters = await getAvailableClusters();
-        
-        // Get departments for each cluster
-        const clusterData = await Promise.all(clusters.map(async cluster => {
-            const departments = await getDepartmentsInCluster(cluster);
-            const clusterStat = stats.find(stat => stat.cluster === cluster) || {
-                cluster,
-                review1: 0,
-                review2: 0,
-                total: 0
-            };
+        const enabledReviewType = await getEnabledReviewType();
+        if (!enabledReviewType) {
+            return res.status(400).json({
+                success: false,
+                message: 'No challenge review type is currently enabled'
+            });
+        }
+
+        // Get pending requests grouped by cluster
+        const pendingRequests = await getPendingRequests();
+        const clusters = [...new Set(pendingRequests.map(req => req.cluster))];
+
+        const clusterStats = await Promise.all(clusters.map(async cluster => {
+            const requests = pendingRequests.filter(req => req.cluster === cluster);
+            const availableStaff = await getAvailableStaffForCluster(cluster);
+            
+            // Filter out null designations and get unique values
+            const designations = [...new Set(
+                availableStaff
+                    .map(staff => staff.designation)
+                    .filter(designation => designation !== null)
+            )];
             
             return {
-                ...clusterStat,
-                departments
+                cluster,
+                pendingRequests: requests.length,
+                availableStaff: availableStaff.length,
+                staffDesignations: designations.length > 0 ? designations : []
             };
         }));
-        
+
         res.status(200).json({
             success: true,
-            data: clusterData
+            enabledReviewType,
+            clusterStats,
+            totalPendingRequests: pendingRequests.length
         });
+
     } catch (error) {
-        console.error('Error getting cluster statistics:', error);
+        console.error('Error getting assignment status:', error);
         res.status(500).json({
             success: false,
-            message: 'Failed to get cluster statistics',
-            error: error.message
+            message: 'Failed to get assignment status'
         });
     }
 };
 
-// Assign reviewers by ratio
-const assignReviewersByRatio = async (req, res) => {
-    const { cluster, review_type, ratio } = req.body;
-    
+// Assign reviewers to pending requests in batches
+const assignReviewersBatch = async (req, res) => {
+    const { cluster, batchSize } = req.body;
+
+    if (!cluster || !batchSize) {
+        return res.status(400).json({
+            success: false,
+            message: 'Cluster and batchSize parameters are required'
+        });
+    }
+
     try {
-        // Validate input
-        if (!cluster || !review_type || !ratio || isNaN(ratio.requests) || isNaN(ratio.reviewers)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Cluster, review type, and ratio (requests and reviewers) are required'
-            });
-        }
-        
-        // Get available reviewer pairs for the cluster
-        const reviewerPairs = await getAvailableStaffByCluster(cluster);
-        if (reviewerPairs.length === 0) {
-            return res.status(400).json({
-                success: false,
-                message: `No available reviewer pairs found in cluster ${cluster}`
-            });
-        }
-        
-        // Calculate how many requests we can assign based on the ratio
-        const requestsToAssign = ratio.requests * Math.floor(reviewerPairs.length / ratio.reviewers);
-        if (requestsToAssign <= 0) {
-            return res.status(400).json({
-                success: false,
-                message: 'Not enough reviewer pairs for the requested ratio'
-            });
-        }
-        
-        // Get unassigned requests
-        const requests = await getUnassignedRequestsByCluster(
-            cluster, 
-            review_type, 
-            requestsToAssign
-        );
-        
-        if (requests.length === 0) {
-            return res.status(400).json({
-                success: false,
-                message: 'No unassigned requests found for this cluster and review type'
-            });
-        }
-        
-        // Prepare assignments
-        const assignments = [];
-        const assignmentsPerPair = Math.floor(requests.length / ratio.reviewers);
-        
-        for (let i = 0; i < requests.length; i++) {
-            const pairIndex = Math.floor(i / assignmentsPerPair) % reviewerPairs.length;
-            const pair = reviewerPairs[pairIndex];
-            
-            assignments.push({
-                ...requests[i],
-                pmc1_reg_num: pair.pmc1.reg_num,  // Junior as PMC1
-                pmc2_reg_num: pair.pmc2.reg_num   // Senior as PMC2
-            });
-        }
-        
-        // Save assignments to database
-        await assignReviewers(assignments);
-        
-        // Update request status
-        const requestIds = requests.map(r => r.request_id);
-        await updateRequestStatus(requestIds);
+        const result = await assignReviewersInBatch(cluster, parseInt(batchSize));
         
         res.status(200).json({
             success: true,
-            message: `Successfully assigned ${assignments.length} requests using ${reviewerPairs.length} reviewer pairs`,
-            data: {
-                cluster,
-                review_type,
-                ratio_applied: `${ratio.requests} requests : ${ratio.reviewers} reviewer pairs`,
-                assignments_made: assignments.length,
-                reviewer_pairs_used: reviewerPairs.length
-            }
+            message: result.message,
+            assignments: result.assignments,
+            remainingRequests: result.remainingRequests
         });
-        
+
     } catch (error) {
-        console.error('Error in reviewer assignment:', error);
+        console.error('Error assigning reviewers:', error);
         res.status(500).json({
             success: false,
-            message: 'Failed to assign reviewers',
-            error: error.message
+            message: error.message || 'Failed to assign reviewers'
+        });
+    }
+};
+
+// Get pending requests for a specific cluster
+const getClusterPendingRequests = async (req, res) => {
+    const { cluster } = req.params;
+
+    if (!cluster) {
+        return res.status(400).json({
+            success: false,
+            message: 'Cluster parameter is required'
+        });
+    }
+
+    try {
+        const requests = await getPendingRequests(cluster);
+        
+        res.status(200).json({
+            success: true,
+            requests,
+            count: requests.length
+        });
+
+    } catch (error) {
+        console.error('Error getting cluster requests:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to get cluster requests'
+        });
+    }
+};
+
+// Get available staff for a specific cluster
+const getClusterAvailableStaff = async (req, res) => {
+    const { cluster } = req.params;
+
+    if (!cluster) {
+        return res.status(400).json({
+            success: false,
+            message: 'Cluster parameter is required'
+        });
+    }
+
+    try {
+        const staff = await getAvailableStaffForCluster(cluster);
+        
+        res.status(200).json({
+            success: true,
+            staff,
+            count: staff.length
+        });
+
+    } catch (error) {
+        console.error('Error getting cluster staff:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to get cluster staff'
         });
     }
 };
 
 module.exports = {
-    getClusterStatistics,
-    assignReviewersByRatio
+    getAssignmentStatus,
+    assignReviewersBatch,
+    getClusterPendingRequests,
+    getClusterAvailableStaff
 };

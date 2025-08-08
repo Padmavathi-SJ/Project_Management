@@ -1,234 +1,265 @@
 const db = require('../../db.js');
 
-// Get all available clusters
-const getAvailableClusters = () => {
-    const query = `
-        SELECT DISTINCT cluster 
-        FROM users 
-        WHERE cluster IS NOT NULL
-        AND role = 'staff'
-        AND available = 1
-    `;
-    
+// Helper function to promisify db.query with proper error handling
+const queryAsync = (sql, params, connection = null) => {
     return new Promise((resolve, reject) => {
-        db.query(query, (err, results) => {
-            if (err) return reject(err);
-            resolve(results.map(row => row.cluster));
-        });
-    });
-};
-
-// Get departments in a cluster
-const getDepartmentsInCluster = (cluster) => {
-    const query = `
-        SELECT DISTINCT dept 
-        FROM users 
-        WHERE cluster = ?
-        AND role = 'staff'
-        AND available = 1
-    `;
-    
-    return new Promise((resolve, reject) => {
-        db.query(query, [cluster], (err, results) => {
-            if (err) return reject(err);
-            resolve(results.map(row => row.dept));
-        });
-    });
-};
-
-// Get available staff by cluster with seniority pairing
-const getAvailableStaffByCluster = (cluster) => {
-    const query = `
-        SELECT 
-            u.reg_num, 
-            u.name,
-            u.dept,
-            u.staff_designation,
-            u.seniority_level,
-            COUNT(cra.assignment_id) as current_assignments
-        FROM 
-            users u
-        LEFT JOIN 
-            challenge_review_reviewers_assignment cra ON (
-                (cra.pmc1_reg_num = u.reg_num OR cra.pmc2_reg_num = u.reg_num)
-            )
-        WHERE 
-            u.role = 'staff' 
-            AND u.cluster = ?
-            AND u.available = 1
-        GROUP BY 
-            u.reg_num, u.name, u.dept, u.staff_designation, u.seniority_level
-        ORDER BY 
-            u.seniority_level ASC
-    `;
-    
-    return new Promise((resolve, reject) => {
-        db.query(query, [cluster], (err, results) => {
-            if (err) return reject(err);
-            
-            // Pair senior and junior staff
-            const pairedReviewers = [];
-            const sortedReviewers = [...results].sort((a, b) => a.seniority_level - b.seniority_level);
-            
-            // Create pairs by matching highest seniority with lowest
-            while (sortedReviewers.length >= 2) {
-                const senior = sortedReviewers.pop(); // Highest seniority
-                const junior = sortedReviewers.shift(); // Lowest seniority
-                pairedReviewers.push({
-                    pmc1: junior,  // Junior as PMC1
-                    pmc2: senior    // Senior as PMC2
-                });
-            }
-            
-            // If odd number, add remaining as a single reviewer pair
-            if (sortedReviewers.length === 1) {
-                const remaining = sortedReviewers[0];
-                pairedReviewers.push({
-                    pmc1: remaining,
-                    pmc2: remaining
-                });
-            }
-            
-            resolve(pairedReviewers);
-        });
-    });
-};
-
-// Get unassigned challenge review requests by cluster and review type
-const getUnassignedRequestsByCluster = (cluster, review_type, limit) => {
-    const query = `
-        SELECT 
-            crr.request_id,
-            crr.team_id,
-            crr.project_id,
-            crr.project_type,
-            crr.semester,
-            crr.review_type,
-            crr.student_reg_num
-        FROM 
-            challenge_review_requests crr
-        LEFT JOIN 
-            challenge_review_reviewers_assignment cra ON (
-                crr.student_reg_num = cra.student_reg_num 
-                AND crr.semester = cra.semester
-                AND crr.review_type = cra.review_type
-            )
-        WHERE 
-            crr.cluster = ?
-            AND crr.review_type = ?
-            AND crr.review_status = 'Not completed'
-            AND crr.request_status = 'approved'
-            AND cra.assignment_id IS NULL
-        LIMIT ?
-    `;
-    
-    return new Promise((resolve, reject) => {
-        db.query(query, [cluster, review_type, limit], (err, results) => {
+        if (!connection && !db) {
+            return reject(new Error('Database connection not initialized'));
+        }
+        
+        const queryFn = connection ? connection.query.bind(connection) : db.query.bind(db);
+        queryFn(sql, params, (err, results) => {
             if (err) return reject(err);
             resolve(results);
         });
     });
 };
 
-// Assign reviewers to requests
-const assignReviewers = (assignments) => {
-    const query = `
-        INSERT INTO challenge_review_reviewers_assignment (
-            semester, team_id, project_id, project_type, review_type,
-            student_reg_num, pmc1_reg_num, pmc2_reg_num
-        ) VALUES ?
-    `;
-    
-    const values = assignments.map(assignment => [
-        assignment.semester,
-        assignment.team_id,
-        assignment.project_id,
-        assignment.project_type,
-        assignment.review_type,
-        assignment.student_reg_num,
-        assignment.pmc1_reg_num,
-        assignment.pmc2_reg_num
-    ]);
-    
-    return new Promise((resolve, reject) => {
-        db.query(query, [values], (err, result) => {
-            if (err) {
-                console.error('SQL Error in assignReviewers:', err);
-                return reject(err);
-            }
-            resolve(result);
-        });
-    });
+// Get currently enabled review type from admin_accesses
+const getEnabledReviewType = async () => {
+    try {
+        const query = `
+            SELECT review_type 
+            FROM admin_accesses 
+            WHERE challenge_review_access = 'enabled'
+            LIMIT 1`;
+        
+        const results = await queryAsync(query);
+        return results[0]?.review_type || null;
+    } catch (error) {
+        console.error('Error getting enabled review type:', error);
+        throw error;
+    }
 };
 
-// Update request status after assignment
-const updateRequestStatus = (request_ids) => {
-    const query = `
-        UPDATE challenge_review_requests
-        SET review_status = 'Assigned'
-        WHERE request_id IN (?)
-    `;
-    
-    return new Promise((resolve, reject) => {
-        db.query(query, [request_ids], (err, result) => {
-            if (err) return reject(err);
-            resolve(result);
-        });
-    });
+// Get pending challenge review requests for the enabled review type
+const getPendingRequests = async (cluster = null) => {
+    try {
+        const enabledReviewType = await getEnabledReviewType();
+        if (!enabledReviewType) {
+            return [];
+        }
+
+        let query = `
+            SELECT * FROM challenge_review_requests
+            WHERE review_type = ?
+            AND request_status = 'rejected'
+            AND review_status = 'Not completed'`;
+        
+        const params = [enabledReviewType];
+        
+        if (cluster) {
+            query += ` AND cluster = ?`;
+            params.push(cluster);
+        }
+
+        return await queryAsync(query, params);
+    } catch (error) {
+        console.error('Error getting pending requests:', error);
+        throw error;
+    }
 };
 
-// Get challenge review statistics by cluster
-const getReviewStatisticsByCluster = () => {
-    const query = `
-        SELECT 
-            cluster,
-            review_type, 
-            COUNT(*) as count
-        FROM 
-            challenge_review_requests
-        WHERE 
-            review_status = 'Not completed'
-            AND request_status = 'approved'
-        GROUP BY 
-            cluster, review_type
-    `;
-    
-    return new Promise((resolve, reject) => {
-        db.query(query, (err, results) => {
-            if (err) return reject(err);
-            
-            // Organize by cluster
-            const clusterStats = {};
-            results.forEach(item => {
-                if (!clusterStats[item.cluster]) {
-                    clusterStats[item.cluster] = {
-                        cluster: item.cluster,
-                        review1: 0,
-                        review2: 0,
-                        total: 0
-                    };
-                }
-                
-                if (item.review_type === 'review-1') {
-                    clusterStats[item.cluster].review1 = item.count;
-                } else {
-                    clusterStats[item.cluster].review2 = item.count;
-                }
-                
-                clusterStats[item.cluster].total += item.count;
+// Get available staff for a cluster (filtered by designation hierarchy)
+const getAvailableStaffForCluster = async (cluster) => {
+    try {
+        const query = `
+            SELECT u.reg_num, u.name, u.staff_designation as designation, u.dept, u.cluster
+            FROM users u
+            LEFT JOIN challenge_review_reviewers_assignment cra ON 
+                (u.reg_num = cra.pmc1_reg_num OR u.reg_num = cra.pmc2_reg_num) 
+            WHERE u.role = 'staff'
+            AND u.cluster = ?
+            AND cra.assignment_id IS NULL
+            ORDER BY 
+                CASE u.staff_designation
+                    WHEN 'head' THEN 1
+                    WHEN 'professor' THEN 2
+                    WHEN 'Associate Professor' THEN 3
+                    WHEN 'Assistant professor level III' THEN 4
+                    WHEN 'assistant professor level II' THEN 5
+                    WHEN 'assistant professor level I' THEN 6
+                    WHEN 'assistant professor' THEN 7
+                    ELSE 8
+                END`;
+        
+        return await queryAsync(query, [cluster]);
+    } catch (error) {
+        console.error('Error getting available staff:', error);
+        throw error;
+    }
+};
+
+
+// Assign reviewers to requests in batches (batchSize requests per reviewer pair)
+// Assign reviewers to requests in batches (batchSize requests per reviewer pair)
+const assignReviewersInBatch = async (cluster, batchSize) => {
+    let connection;
+    try {
+        // Get a connection from the pool
+        connection = await new Promise((resolve, reject) => {
+            db.getConnection((err, conn) => {
+                if (err) return reject(err);
+                resolve(conn);
             });
-            
-            resolve(Object.values(clusterStats));
         });
-    });
+
+        // Start transaction
+        await queryAsync('START TRANSACTION', null, connection);
+
+        // Get enabled review type
+        const enabledReviewType = await getEnabledReviewType();
+        if (!enabledReviewType) {
+            throw new Error('No challenge review type is currently enabled');
+        }
+
+        // Get pending requests for this cluster
+        const pendingRequests = await getPendingRequests(cluster);
+        if (pendingRequests.length === 0) {
+            return { 
+                success: true, 
+                message: 'No pending requests for this cluster',
+                assignments: [],
+                remainingRequests: 0
+            };
+        }
+
+        // Get available staff for this cluster
+        const availableStaff = await getAvailableStaffForCluster(cluster);
+        if (availableStaff.length < 2) {
+            throw new Error('Not enough available staff for this cluster');
+        }
+
+        // Group staff by designation level
+        const staffByLevel = {};
+        availableStaff.forEach(staff => {
+            if (!staffByLevel[staff.designation]) {
+                staffByLevel[staff.designation] = [];
+            }
+            staffByLevel[staff.designation].push(staff);
+        });
+
+        const designations = Object.keys(staffByLevel).sort((a, b) => {
+            const levels = {
+                'head': 1,
+                'professor': 2,
+                'Associate Professor': 3,
+                'Assistant professor level III': 4,
+                'assistant professor level II': 5,
+                'assistant professor level I': 6,
+                'assistant professor': 7
+            };
+            return (levels[a] || 8) - (levels[b] || 8);
+        });
+
+        if (designations.length < 1) {
+            throw new Error('No suitable staff designations available');
+        }
+
+        const results = [];
+        let currentPair = null;
+        let requestsAssigned = 0;
+        const requestsToProcess = Math.min(batchSize, pendingRequests.length);
+
+        // Get the most senior available PMC1
+        let pmc1 = null;
+        for (const designation of designations) {
+            if (staffByLevel[designation]?.length > 0) {
+                pmc1 = staffByLevel[designation].pop();
+                break;
+            }
+        }
+
+        // Get the most junior available PMC2
+        let pmc2 = null;
+        for (let j = designations.length - 1; j >= 0; j--) {
+            const designation = designations[j];
+            if (staffByLevel[designation]?.length > 0) {
+                pmc2 = staffByLevel[designation].pop();
+                break;
+            }
+        }
+
+        // If no junior found, try any available staff
+        if (!pmc2) {
+            for (const designation in staffByLevel) {
+                if (staffByLevel[designation]?.length > 0) {
+                    pmc2 = staffByLevel[designation].pop();
+                    break;
+                }
+            }
+        }
+
+        if (!pmc1 || !pmc2) {
+            throw new Error('Not enough staff to form a review pair');
+        }
+
+        currentPair = { pmc1, pmc2 };
+
+        for (let i = 0; i < requestsToProcess; i++) {
+            const request = pendingRequests[i];
+            
+            try {
+                // Insert reviewer assignment
+                const assignmentQuery = `
+                    INSERT INTO challenge_review_reviewers_assignment (
+                        semester, team_id, project_id, project_type, review_type,
+                        student_reg_num, pmc1_reg_num, pmc2_reg_num
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+                
+                const assignmentResult = await queryAsync(assignmentQuery, [
+                    request.semester,
+                    request.team_id,
+                    request.project_id,
+                    request.project_type,
+                    enabledReviewType,
+                    request.student_reg_num,
+                    currentPair.pmc1.reg_num,
+                    currentPair.pmc2.reg_num
+                ], connection);
+
+                // Update request status
+                const updateQuery = `
+                    UPDATE challenge_review_requests
+                    SET request_status = 'approved',
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE request_id = ?`;
+                
+                await queryAsync(updateQuery, [request.request_id], connection);
+                
+                results.push(assignmentResult);
+                requestsAssigned++;
+            } catch (error) {
+                await queryAsync('ROLLBACK', null, connection);
+                if (connection) connection.release();
+                throw error;
+            }
+        }
+
+        await queryAsync('COMMIT', null, connection);
+        if (connection) connection.release();
+
+        const remainingRequests = pendingRequests.length - requestsAssigned;
+        return { 
+            success: true, 
+            message: `Assigned 1 reviewer pair to ${requestsAssigned} requests`,
+            assignments: results,
+            remainingRequests: remainingRequests
+        };
+
+    } catch (error) {
+        if (connection) {
+            await queryAsync('ROLLBACK', null, connection);
+            connection.release();
+        }
+        console.error('Error in assignReviewersInBatch:', error);
+        throw error;
+    }
 };
 
 module.exports = {
-    getAvailableClusters,
-    getDepartmentsInCluster,
-    getAvailableStaffByCluster,
-    getUnassignedRequestsByCluster,
-    assignReviewers,
-    updateRequestStatus,
-    getReviewStatisticsByCluster
+    getEnabledReviewType,
+    getPendingRequests,
+    getAvailableStaffForCluster,
+    assignReviewersInBatch
 };
