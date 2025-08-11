@@ -19,41 +19,45 @@ const get_teams_by_guide = (guide_reg_num) => {
     });
 };
 
-const create_review_schedule = (reviewData) => {
-  //validate semester
-  if (!['5', '6', '7', '8'].includes(reviewData.semester)) {
-    throw new Error('Invalid semester value');
+const create_review_schedule = async (reviewData) => {
+  //Get team details
+  const teamQuery = `select guide_reg_num, sub_expert_reg_num from teams where team_id = ? limit 1`;
+
+  const [team] = await db.promise().query(teamQuery, [reviewData.team_id]);
+  
+  if(!team || team.length === 0){
+    throw new Error('Team not found');
   }
 
-  //validate review type
-  if(!['review-1', 'review-2'].includes(reviewData.review_type)) {
-    throw new Error('Invalid ewview type');
-  }
     const query = `
-        INSERT INTO guide_review_schedules (
-            review_id,
+        INSERT INTO regular_review_schedules (
             guide_reg_num,
+            sub_expert_reg_num,
             team_id,
             project_id,
             semester,
             review_type,
+            review_mode,
             venue,
             date,
-            time,
+            start_time,
+            end_time,
             meeting_link
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     
     const values = [
-        reviewData.review_id,
-        reviewData.guide_reg_num,
+        team[0].guide_reg_num,
+        team[0].sub_expert_reg_num,
         reviewData.team_id,
         reviewData.project_id,
         reviewData.semester,
         reviewData.review_type,
+        reviewData.review_mode || 'offline',
         reviewData.venue,
         reviewData.date,
-        reviewData.time,
+        reviewData.start_time,
+        reviewData.end_time,
         reviewData.meeting_link
     ];
     
@@ -67,7 +71,7 @@ const create_review_schedule = (reviewData) => {
 
 const get_schedules_by_guide = (guide_reg_num) => {
     const query = `
-        SELECT * FROM guide_review_schedules 
+        SELECT * FROM regular_review_schedules 
         WHERE guide_reg_num = ?
         ORDER BY date, time
     `;
@@ -82,7 +86,7 @@ const get_schedules_by_guide = (guide_reg_num) => {
 const updateReviewStatus = (reviewId, guideRegNum, newStatus) => {
   return new Promise((resolve, reject) => {
     const query = `
-      UPDATE guide_review_schedules 
+      UPDATE regular_review_schedules 
       SET status = ? 
       WHERE review_id = ? AND guide_reg_num = ?
     `;
@@ -99,7 +103,7 @@ const updateReviewStatus = (reviewId, guideRegNum, newStatus) => {
 const getReviewById = (reviewId, guideRegNum) => {
   return new Promise((resolve, reject) => {
     const query = `
-      SELECT * FROM guide_review_schedules 
+      SELECT * FROM regular_review_schedules 
       WHERE review_id = ? AND guide_reg_num = ?
     `;
     db.query(query, [reviewId, guideRegNum], (err, result) => {

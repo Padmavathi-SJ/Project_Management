@@ -28,14 +28,16 @@ const schedule_review = async (req, res) => {
         project_id,
         semester,
         review_type,
+        review_mode,
         venue,
         date,
-        time,
+        start_time,
+        end_time,
         meeting_link
     } = req.body;
 
      // Validate required fields
-    const requiredFields = ['team_id', 'project_id', 'semester', 'review_type', 'venue', 'date', 'time'];
+    const requiredFields = ['team_id', 'project_id', 'semester', 'review_type', 'venue', 'date', 'start_time', 'end_time'];
     const missingFields = requiredFields.filter(field => !req.body[field]);
 
     if (missingFields.length > 0) {
@@ -61,18 +63,27 @@ const schedule_review = async (req, res) => {
         });
     }
 
-    const review_id = `REV-${uuidv4().substring(0, 8)}`;
+    //validate review mode if provided
+    if (review_mode && !['online', 'offline'].includes(review_mode)) {
+        return res.status(400).json({
+            status: false,
+            error: 'Invalid review type.Must be online or offline'
+        });
+    }
+
+
     
     const reviewData = {
-        review_id,
-        guide_reg_num,
+        
         team_id,
         project_id,
         semester,
         review_type,
+        review_mode,
         venue,
         date,
-        time,
+        start_time,
+        end_time,
         meeting_link
     };
 
