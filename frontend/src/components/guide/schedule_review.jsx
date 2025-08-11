@@ -13,11 +13,14 @@ const ScheduleReview = ({ onSuccess }) => {
 
   const [formData, setFormData] = useState({
     team_id: '',
+    project_id: '',
     semester: '5', // Default to semester 5
     review_type: 'review-1',
+    review_mode: 'offline',
     venue: '',
     date: '',
-    time: '',
+    start_time: '',
+    end_time: '',
     meeting_link: ''
   });
 
@@ -51,27 +54,56 @@ const ScheduleReview = ({ onSuccess }) => {
     }));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!guideRegNum) {
-      alert('Guide registration number not found');
-      return;
-    }
+  const handleTeamSelect = (e) => {
+    const teamId = e.target.value;
+    const selectedTeam = teams.find((t) => t.team_id === teamId);
+    setFormData((prev) => ({
+      ...prev,
+      team_id: teamId,
+      project_id: selectedTeam?.project_id || '' 
+    }));
+  }
 
-    try {
-      const selectedTeam = teams.find((t) => t.team_id === formData.team_id);
-      const response = await instance.post(`/api/guide/${guideRegNum}/schedule`, {
-        ...formData,
-        project_id: selectedTeam?.project_id || ''
-      });
 
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  if (!guideRegNum) {
+    alert('Guide registration number not found');
+    return;
+  }
+
+  // Validate time
+  if (formData.start_time >= formData.end_time) {
+    alert('End time must be after start time');
+    return;
+  }
+
+  try {
+    setLoading(true);
+    const response = await instance.post(
+      `/api/guide/${guideRegNum}/schedule`,
+      formData // Send formData directly, not wrapped in an object
+    );
+
+    if (response.data && response.data.status === true) {
       alert(response.data.message || 'Review scheduled successfully!');
       if (onSuccess) onSuccess();
       navigate('/guide/schedule-review');
-    } catch (err) {
-      alert(err.response?.data?.message || 'Failed to schedule review');
+    } else {
+      throw new Error(response.data?.error || 'Failed to schedule review');
     }
-  };
+  } catch (err) {
+    console.error('Error scheduling review:', err);
+    alert(
+      err.response?.data?.error || 
+      err.response?.data?.message ||
+      err.message ||
+      'Failed to schedule review'
+    );
+  } finally {
+    setLoading(false);
+  }
+};
 
   if (loading) return <div className="p-4">Loading teams...</div>;
   if (error) return <div className="p-4 text-red-500">{error}</div>;
@@ -87,7 +119,7 @@ const ScheduleReview = ({ onSuccess }) => {
             <select
               name="team_id"
               value={formData.team_id}
-              onChange={handleChange}
+              onChange={handleTeamSelect}
               className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
               required
             >
@@ -98,6 +130,18 @@ const ScheduleReview = ({ onSuccess }) => {
                 </option>
               ))}
             </select>
+          </div>
+
+          {/* Project ID (auto-filled) */}
+          <div>
+            <label className='block text-gray-700 mb-2'>Project ID</label>
+            <input
+            type='text'
+            name="project_id"
+            value={formData.project_id}
+            readOnly
+            className="w-full p-2 border border-gray-300 rounded-md bg-gray-100"
+            />
           </div>
 
           {/* Semester Selection */}
@@ -132,9 +176,26 @@ const ScheduleReview = ({ onSuccess }) => {
             </select>
           </div>
 
+          {/* Review Mode */}
+          <div>
+            <label className="block text-gray-700 mb-2">Review Mode</label>
+            <select
+              name="review_mode"
+              value={formData.review_mode}
+              onChange={handleChange}
+              className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+              required
+            >
+              <option value="offline">Offline</option>
+              <option value="online">Online</option>
+            </select>
+          </div>
+
           {/* Venue */}
           <div>
-            <label className="block text-gray-700 mb-2">Venue</label>
+            <label className="block text-gray-700 mb-2">
+              {formData.review_mode === 'online' ? 'Meeting Platform' : 'Venue'}
+            </label>
             <input
               type="text"
               name="venue"
@@ -142,6 +203,7 @@ const ScheduleReview = ({ onSuccess }) => {
               onChange={handleChange}
               className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
               required
+              placeholder={formData.review_mode === 'online' ? 'e.g., Google Meet, Zoom' : 'e.g., Room 101, CS Department'}
             />
           </div>
 
@@ -158,39 +220,57 @@ const ScheduleReview = ({ onSuccess }) => {
             />
           </div>
 
-          {/* Time */}
+          {/* Start Time */}
           <div>
-            <label className="block text-gray-700 mb-2">Time</label>
+            <label className="block text-gray-700 mb-2">Start Time</label>
             <input
               type="time"
-              name="time"
-              value={formData.time}
+              name="start_time"
+              value={formData.start_time}
               onChange={handleChange}
               className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
               required
             />
           </div>
 
-          {/* Meeting Link */}
-          <div className="md:col-span-2">
-            <label className="block text-gray-700 mb-2">Meeting Link (Optional)</label>
+          {/* End Time */}
+          <div>
+            <label className="block text-gray-700 mb-2">End Time</label>
             <input
-              type="url"
-              name="meeting_link"
-              value={formData.meeting_link}
+              type="time"
+              name="end_time"
+              value={formData.end_time}
               onChange={handleChange}
               className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-              placeholder="https://meet.example.com/your-meeting"
+              required
             />
           </div>
+
+          {/* Meeting Link (shown only for online) */}
+          {formData.review_mode === 'online' && (
+            <div className="md:col-span-2">
+              <label className="block text-gray-700 mb-2">Meeting Link</label>
+              <input
+                type="url"
+                name="meeting_link"
+                value={formData.meeting_link}
+                onChange={handleChange}
+                className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                placeholder="https://meet.example.com/your-meeting"
+              />
+            </div>
+          )}
         </div>
         <div className="flex justify-end mt-6">
           <button
-            type="submit"
-            className="px-6 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
-          >
-            Schedule Review
-          </button>
+  type="submit"
+  disabled={loading}
+  className={`px-6 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
+    loading ? 'opacity-50 cursor-not-allowed' : ''
+  }`}
+>
+  {loading ? 'Scheduling...' : 'Schedule Review'}
+</button>
         </div>
       </form>
     </div>
