@@ -270,24 +270,17 @@ const getCompletedOptionalReviewStudents = (teamId) => {
   return new Promise((resolve, reject) => {
     const query = `
       SELECT 
-        g.student_reg_num,
-        g.semester,
-        g.review_type
+        student_reg_num,
+        semester,
+        review_type
       FROM 
-        optional_review_schedules_byguide g
-      INNER JOIN 
-        optional_review_schedules_bysubexpert s
-      ON 
-        g.student_reg_num = s.student_reg_num AND
-        g.team_id = s.team_id AND
-        g.semester = s.semester AND
-        g.review_type = s.review_type
+        optional_review_schedules 
       WHERE 
-        g.team_id = ? AND 
-        g.status = 'Completed' AND 
-        s.status = 'Completed'
+        team_id = ? AND 
+        guide_review_status = 'Completed' AND 
+        sub_expert_review_status = 'Completed'
       GROUP BY 
-        g.student_reg_num, g.semester, g.review_type
+        student_reg_num, semester, review_type
     `;
     
     db.query(query, [teamId], (err, results) => {
