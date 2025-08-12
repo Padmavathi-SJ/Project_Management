@@ -25,22 +25,25 @@ const ReviewProgress = () => {
         setLoading(true);
         setError(null);
         
+        // Fetch both guide and sub-expert reviews in parallel
         const [guideResponse, subExpertResponse] = await Promise.all([
           instance.get(`/api/guide/${userRegNum}/schedules`),
           instance.get(`/api/sub-expert/${userRegNum}/schedules`)
         ]);
 
+        // Process guide reviews with guide-specific status
         if (guideResponse.data.status) {
           setGuideReviews(guideResponse.data.schedules?.map(review => ({
             ...review,
-            status: review.status || 'Not completed'
+            status: review.guide_review_status || 'Not completed'
           })) || []);
         }
 
+        // Process sub-expert reviews with sub-expert-specific status
         if (subExpertResponse.data.status) {
           setSubExpertReviews(subExpertResponse.data.schedules?.map(review => ({
             ...review,
-            status: review.status || 'Not completed'
+            status: review.sub_expert_review_status || 'Not completed'
           })) || []);
         }
       } catch (err) {
@@ -62,15 +65,24 @@ const ReviewProgress = () => {
         ? `/api/guide/${userRegNum}/review/${reviewId}/status`
         : `/api/sub-expert/${userRegNum}/review/${reviewId}/status`;
 
-      await instance.patch(endpoint, { status: newStatus });
+      const response = await instance.patch(endpoint, { status: newStatus });
       
+      // Update the appropriate state based on user role
       if (isGuideReview) {
         setGuideReviews(prev => prev.map(review => 
-          review.review_id === reviewId ? { ...review, status: newStatus } : review
+          review.review_id === reviewId ? { 
+            ...review, 
+            guide_review_status: newStatus,
+            status: newStatus // Keep the local status for display
+          } : review
         ));
       } else {
         setSubExpertReviews(prev => prev.map(review => 
-          review.review_id === reviewId ? { ...review, status: newStatus } : review
+          review.review_id === reviewId ? { 
+            ...review, 
+            sub_expert_review_status: newStatus,
+            status: newStatus // Keep the local status for display
+          } : review
         ));
       }
     } catch (err) {
@@ -81,7 +93,7 @@ const ReviewProgress = () => {
     }
   };
 
-  const handleAwardMarks = (review) => {
+  const handleAwardMarks = (review,isGuideReview) => {
     navigate(`/guide/award-marks/${userRegNum}/team/${review.team_id}`, {
       state: { 
         reviewId: review.review_id,
@@ -93,20 +105,38 @@ const ReviewProgress = () => {
     });
   };
 
-  const formatDateTime = (dateString, timeString) => {
+  const formatDateTime = (dateString, startTime, endTime) => {
     try {
-      if (!dateString || !timeString) return 'Not scheduled';
+      if (!dateString || !startTime) return 'Not scheduled';
+      
       const date = new Date(dateString);
       if (isNaN(date.getTime())) return 'Invalid date';
-      const [hours, minutes, seconds] = timeString.split(':').map(Number);
-      date.setHours(hours, minutes, seconds || 0);
-      return date.toLocaleString('en-US', {
+      
+      // Format start time
+      const [startHours, startMinutes] = startTime.split(':').map(Number);
+      const startTimeStr = new Date(date);
+      startTimeStr.setHours(startHours, startMinutes);
+      
+      // Format end time if available
+      let endTimeStr = '';
+      if (endTime) {
+        const [endHours, endMinutes] = endTime.split(':').map(Number);
+        const endDate = new Date(date);
+        endDate.setHours(endHours, endMinutes);
+        endTimeStr = endDate.toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+      }
+
+      return `${date.toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'short',
-        day: 'numeric',
+        day: 'numeric'
+      })} • ${startTimeStr.toLocaleTimeString('en-US', {
         hour: '2-digit',
         minute: '2-digit'
-      });
+      })}${endTimeStr ? ` - ${endTimeStr}` : ''}`;
     } catch (e) {
       console.error('Error formatting date:', e);
       return 'Invalid date/time';
@@ -121,9 +151,11 @@ const ReviewProgress = () => {
             <tr className="bg-gray-100">
               <th className="py-3 px-4 border text-left">Team</th>
               <th className="py-3 px-4 border text-left">Project</th>
+              <th className="py-3 px-4 border text-left">Semester</th>
               <th className="py-3 px-4 border text-left">Type</th>
               <th className="py-3 px-4 border text-left">Scheduled Time</th>
-              <th className="py-3 px-4 border text-left">Venue</th>
+              <th className="py-3 px-4 border text-left">Mode</th>
+              <th className="py-3 px-4 border text-left">Venue/Platform</th>
               <th className="py-3 px-4 border text-left">Status</th>
               <th className="py-3 px-4 border text-left">Meeting</th>
               <th className="py-3 px-4 border text-left">Actions</th>
@@ -134,20 +166,34 @@ const ReviewProgress = () => {
               <tr key={review.review_id} className="hover:bg-gray-50 even:bg-gray-50">
                 <td className="py-3 px-4 border font-medium">{review.team_id || 'N/A'}</td>
                 <td className="py-3 px-4 border">{review.project_id || 'N/A'}</td>
+                <td className="py-3 px-4 border">Sem {review.semester || 'N/A'}</td>
                 <td className="py-3 px-4 border">
                   <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-sm">
                     {review.review_type || 'N/A'}
                   </span>
                 </td>
                 <td className="py-3 px-4 border">
-                  {formatDateTime(review.date, review.time)}
+                  {formatDateTime(review.date, review.start_time, review.end_time)}
+                </td>
+                <td className="py-3 px-4 border">
+                  <span className={`px-2 py-1 rounded-full text-sm ${
+                    review.review_mode === 'online' 
+                      ? 'bg-blue-100 text-blue-800' 
+                      : 'bg-green-100 text-green-800'
+                  }`}>
+                    {review.review_mode || 'N/A'}
+                  </span>
                 </td>
                 <td className="py-3 px-4 border">{review.venue || 'Not specified'}</td>
                 <td className="py-3 px-4 border">
                   <select
                     value={review.status}
                     onChange={(e) => handleStatusChange(review.review_id, e.target.value, isGuideReview)}
-                    className="border rounded px-2 py-1 text-sm"
+                    className={`border rounded px-2 py-1 text-sm ${
+                      review.status === 'Completed' ? 'bg-green-50 text-green-800' :
+                      review.status === 'Rescheduled' ? 'bg-yellow-50 text-yellow-800' :
+                      'bg-gray-50 text-gray-800'
+                    }`}
                     disabled={updatingStatus}
                   >
                     <option value="Not completed">Not completed</option>
@@ -168,16 +214,16 @@ const ReviewProgress = () => {
                     <span className="text-gray-400">None</span>
                   )}
                 </td>
-                <td className="py-3 px-4 border">
-                  {review.status === 'Completed' && (
-                    <button
-                      onClick={() => handleAwardMarks(review)}
-                      className="px-3 py-1 bg-green-100 text-green-800 rounded hover:bg-green-200 text-sm"
-                    >
-                      Award Marks
-                    </button>
-                  )}
-                </td>
+                  <td className="py-3 px-4 border">
+                    {review.status === 'Completed' && (
+                      <button
+                        onClick={() => handleAwardMarks(review, isGuideReview)}
+                        className="px-3 py-1 bg-green-100 text-green-800 rounded hover:bg-green-200 text-sm"
+                      >
+                        Award Marks
+                      </button>
+                    )}
+                  </td>
               </tr>
             ))}
           </tbody>

@@ -1,21 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
 import { Form, Input, Button, DatePicker, TimePicker, Select, message, Card, Spin } from 'antd';
 import dayjs from 'dayjs';
-import api from '../../utils/axiosInstance'; // Your API service
+import api from '../../utils/axiosInstance';
 import { useSelector } from 'react-redux';
 
 const { Option } = Select;
-const { TextArea } = Input;
 
 const ScheduleOptionalReview = () => {
-  const  user_reg_num  = useSelector((state) => state.userSlice?.reg_num);
+  const user_reg_num = useSelector((state) => state.userSlice?.reg_num);
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [students, setStudents] = useState([]);
   const [userType, setUserType] = useState(null);
 
-  // Fetch students available for review
   useEffect(() => {
     const fetchStudents = async () => {
       try {
@@ -34,23 +31,26 @@ const ScheduleOptionalReview = () => {
         setLoading(false);
       }
     };
-
     fetchStudents();
   }, [user_reg_num]);
 
   const onFinish = async (values) => {
     try {
       setLoading(true);
-      const formattedData = {
+
+      // Prepare payload according to backend expectations
+      const payload = {
         request_id: values.request_id,
-        venue: values.venue,
+        review_mode: values.review_mode,
+        venue: values.review_mode === 'offline' ? values.venue : null,
         date: values.date.format('YYYY-MM-DD'),
-        time: values.time.format('HH:mm:ss'),
-        meeting_link: values.meeting_link
+        start_time: values.start_time.format('HH:mm:ss'),
+        end_time: values.end_time.format('HH:mm:ss'),
+        meeting_link: values.review_mode === 'online' ? values.meeting_link : null
       };
 
-      const response = await api.post(`/api/optional-reviews/schedule_review/${user_reg_num}`, formattedData);
-      
+      const response = await api.post(`/api/optional-reviews/schedule_review/${user_reg_num}`, payload);
+
       if (response.data.status) {
         message.success('Review scheduled successfully!');
         form.resetFields();
@@ -66,13 +66,12 @@ const ScheduleOptionalReview = () => {
   };
 
   const disabledDate = (current) => {
-    // Can not select days before today
     return current && current < dayjs().startOf('day');
   };
 
   return (
-    <Card 
-      title="Schedule Optional Review" 
+    <Card
+      title="Schedule Optional Review"
       bordered={false}
       style={{ maxWidth: 800, margin: '0 auto' }}
     >
@@ -105,11 +104,48 @@ const ScheduleOptionalReview = () => {
           </Form.Item>
 
           <Form.Item
+            label="Review Mode"
+            name="review_mode"
+            rules={[{ required: true, message: 'Please select review mode' }]}
+          >
+            <Select placeholder="Select review mode">
+              <Option value="online">Online</Option>
+              <Option value="offline">Offline</Option>
+            </Select>
+          </Form.Item>
+
+          <Form.Item
             label="Venue"
             name="venue"
-            rules={[{ required: true, message: 'Please input venue details' }]}
+            rules={[
+              ({ getFieldValue }) => ({
+                validator(_, value) {
+                  if (getFieldValue('review_mode') === 'offline' && !value) {
+                    return Promise.reject('Please input venue details for offline review');
+                  }
+                  return Promise.resolve();
+                }
+              })
+            ]}
           >
-            <Input placeholder="Enter venue details" />
+            <Input placeholder="Enter venue details (offline only)" />
+          </Form.Item>
+
+          <Form.Item
+            label="Meeting Link (if online)"
+            name="meeting_link"
+            rules={[
+              ({ getFieldValue }) => ({
+                validator(_, value) {
+                  if (getFieldValue('review_mode') === 'online' && !value) {
+                    return Promise.reject('Please enter meeting link for online review');
+                  }
+                  return Promise.resolve();
+                }
+              })
+            ]}
+          >
+            <Input placeholder="Enter meeting link (online only)" />
           </Form.Item>
 
           <Form.Item
@@ -117,28 +153,23 @@ const ScheduleOptionalReview = () => {
             name="date"
             rules={[{ required: true, message: 'Please select date' }]}
           >
-            <DatePicker 
-              style={{ width: '100%' }} 
-              disabledDate={disabledDate}
-            />
+            <DatePicker style={{ width: '100%' }} disabledDate={disabledDate} />
           </Form.Item>
 
           <Form.Item
-            label="Time"
-            name="time"
-            rules={[{ required: true, message: 'Please select time' }]}
+            label="Start Time"
+            name="start_time"
+            rules={[{ required: true, message: 'Please select start time' }]}
           >
-            <TimePicker 
-              style={{ width: '100%' }} 
-              format="HH:mm" 
-            />
+            <TimePicker style={{ width: '100%' }} format="HH:mm" />
           </Form.Item>
 
           <Form.Item
-            label="Meeting Link (if online)"
-            name="meeting_link"
+            label="End Time"
+            name="end_time"
+            rules={[{ required: true, message: 'Please select end time' }]}
           >
-            <Input placeholder="Enter meeting link (if applicable)" />
+            <TimePicker style={{ width: '100%' }} format="HH:mm" />
           </Form.Item>
 
           <Form.Item>

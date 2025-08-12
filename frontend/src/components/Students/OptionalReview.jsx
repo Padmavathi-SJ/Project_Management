@@ -8,40 +8,52 @@ const OptionalReview = () => {
   const location = useLocation();
 
   const [loading, setLoading] = useState(true);
-  const [isEligible, setIsEligible] = useState(false);
   const [error, setError] = useState(null);
   const [projectDetails, setProjectDetails] = useState(null);
+  const [eligibleReviews, setEligibleReviews] = useState([]);
+  const [isEligible, setIsEligible] = useState(false);
 
   const [formData, setFormData] = useState({
     request_reason: "",
     semester: location.state?.semester || "7",
-    review_type: location.state?.reviewType || "review-1",
+    review_type: "",
   });
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
+        setError(null);
 
-        // Fetch project details
+        // 1. Check eligibility
+        const eligibilityRes = await axios.get(
+          `http://localhost:5000/api/optional-reviews/eligibility/${student_reg_num}`,
+          { params: { semester: formData.semester } }
+        );
+        setIsEligible(!!eligibilityRes.data.isEligible);
+
+        if (!eligibilityRes.data.isEligible) {
+          setError(eligibilityRes.data.error || "You are not eligible for optional review");
+          setLoading(false);
+          return;
+        }
+
+        // 2. Fetch project details
         const projectRes = await axios.get(
           `http://localhost:5000/api/optional-reviews/projects/team/${team_id}`
         );
         setProjectDetails(projectRes.data);
 
-        // Check eligibility
-        const eligibilityRes = await axios.get(
-          `http://localhost:5000/api/optional-reviews/eligibility/${student_reg_num}`,
-          {
-            params: {
-              semester: formData.semester,
-              review_type: formData.review_type,
-            },
-          }
+        // 3. Fetch eligible reviews (where student is absent)
+        const reviewsRes = await axios.get(
+          `http://localhost:5000/api/optional-reviews/eligible-reviews/${student_reg_num}`,
+          { params: { semester: formData.semester } }
         );
+        setEligibleReviews(reviewsRes.data.eligibleReviews);
 
-        setIsEligible(eligibilityRes.data.isEligible);
-        setError(eligibilityRes.data.error || null);
+        if (!reviewsRes.data.eligibleReviews || reviewsRes.data.eligibleReviews.length === 0) {
+          setError("You are not absent in any reviews for this semester");
+        }
       } catch (err) {
         setError(
           err.response?.data?.error || err.message || "Failed to load data"
@@ -52,66 +64,55 @@ const OptionalReview = () => {
     };
 
     fetchData();
-  }, [student_reg_num, team_id, formData.semester, formData.review_type]);
-
-
+  }, [student_reg_num, team_id, formData.semester]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Update your handleSubmit
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  setLoading(true);
-  setError(null);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
 
-  try {
-    const payload = {
-      ...formData,
-      student_reg_num,
-      team_id,
-      project_id: projectDetails.project_id,
-      guide_reg_num: projectDetails.guide_reg_num,
-      sub_expert_reg_num: projectDetails.sub_expert_reg_num || ""
-    };
-
-    console.log("Submitting payload:", payload); // Detailed log
-
-    const response = await axios.post(
-      "http://localhost:5000/api/optional-reviews/post-request",
-      payload,
-      {
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      }
-    );
-
-    console.log("Response received:", response.data); // Log response
-
-    if (response.data?.status) {
-      alert("Request submitted successfully!");
-      navigate(-1);
-    } else {
-      throw new Error(response.data?.message || "Request failed without status");
+    if (!formData.review_type) {
+      setError("Please select a review type");
+      setLoading(false);
+      return;
     }
-  } catch (err) {
-    console.error("Full error:", {
-      message: err.message,
-      response: err.response?.data,
-      stack: err.stack
-    });
-    
-    const errorMsg = err.response?.data?.error || 
-                    err.response?.data?.message || 
-                    err.message;
-    setError(errorMsg);
-  } finally {
-    setLoading(false);
-  }
-};
+
+    try {
+      const payload = {
+        ...formData,
+        student_reg_num,
+        team_id,
+        project_id: projectDetails.project_id,
+        guide_reg_num: projectDetails.guide_reg_num,
+        sub_expert_reg_num: projectDetails.sub_expert_reg_num || ""
+      };
+
+      const response = await axios.post(
+        "http://localhost:5000/api/optional-reviews/post-request",
+        payload
+      );
+
+      if (response.data?.status) {
+        alert("Request submitted successfully!");
+        navigate(-1);
+      } else {
+        throw new Error(response.data?.message || "Request failed");
+      }
+    } catch (err) {
+      setError(
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        err.message
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="container mx-auto p-4 max-w-6xl">
@@ -124,7 +125,7 @@ const handleSubmit = async (e) => {
       ) : error ? (
         <div className="mb-6 p-4 bg-red-100 border-l-4 border-red-500 text-red-700">
           <p className="font-bold">Error</p>
-          <p>{typeof error === "object" ? JSON.stringify(error) : error}</p>
+          <p>{error}</p>
           <button
             onClick={() => navigate(-1)}
             className="mt-2 px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700"
@@ -135,15 +136,18 @@ const handleSubmit = async (e) => {
       ) : !isEligible ? (
         <div className="mb-6 p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700">
           <p className="font-bold">Not Eligible</p>
-          <p>
-            {error ||
-              "You are not eligible for an optional review. This may be because:"}
-            <ul className="list-disc pl-5 mt-2">
-              <li>You weren't absent in both evaluations</li>
-              <li>You already have a pending request this semester</li>
-              <li>Optional reviews are currently disabled by admin</li>
-            </ul>
-          </p>
+          <p>You are not eligible for optional review</p>
+          <button
+            onClick={() => navigate(-1)}
+            className="mt-2 px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700"
+          >
+            Go Back
+          </button>
+        </div>
+      ) : eligibleReviews.length === 0 ? (
+        <div className="mb-6 p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700">
+          <p className="font-bold">Not Eligible</p>
+          <p>You are not absent in any reviews for this semester</p>
           <button
             onClick={() => navigate(-1)}
             className="mt-2 px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700"
@@ -169,12 +173,11 @@ const handleSubmit = async (e) => {
                   <option value="5">Semester 5</option>
                   <option value="6">Semester 6</option>
                   <option value="7">Semester 7</option>
-                  <option value="8">Semester 8</option>
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Review Type
+                  Select Review <span className="text-red-500">*</span>
                 </label>
                 <select
                   name="review_type"
@@ -183,8 +186,13 @@ const handleSubmit = async (e) => {
                   className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
                 >
-                  <option value="review-1">First Review</option>
-                  <option value="review-2">Second Review</option>
+                  <option value="">Select a review</option>
+                  {eligibleReviews.map((review) => (
+                    <option key={review.review_type} value={review.review_type}>
+                      {review.review_type === 'review-1' ? 'First Review' : 'Second Review'}
+                      {review.updated_at ? ` (Absent on ${new Date(review.updated_at).toLocaleDateString()})` : ""}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -199,12 +207,12 @@ const handleSubmit = async (e) => {
                 onChange={handleChange}
                 rows={4}
                 className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Please explain why you need an optional review (minimum 5 characters)..."
-                minLength="5"
+                placeholder="Please explain why you need an optional review..."
+                minLength="10"
                 required
               />
               <p className="text-xs text-gray-500 mt-1">
-                Minimum 5 characters required
+                Minimum 10 characters required
               </p>
             </div>
 

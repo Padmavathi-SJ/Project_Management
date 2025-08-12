@@ -119,6 +119,7 @@ const handleAwardMarks = (review) => {
               <th className="py-3 px-4 border text-left">Team</th>
               <th className="py-3 px-4 border text-left">Semester</th>
               <th className="py-3 px-4 border text-left">Project</th>
+              <th className="py-3 px-4 border text-left">Student</th>
               <th className="py-3 px-4 border text-left">Type</th>
               <th className="py-3 px-4 border text-left">Scheduled Time</th>
               <th className="py-3 px-4 border text-left">Venue</th>
@@ -133,6 +134,7 @@ const handleAwardMarks = (review) => {
                 <td className="py-3 px-4 border font-medium">{review.team_id || 'N/A'}</td>
                 <td className="py-3 px-4 border font-medium">{review.semester || 'N/A'}</td>
                 <td className="py-3 px-4 border">{review.project_id || 'N/A'}</td>
+                <td className="py-3 px-4 border">{review.student_reg_num || 'N/A'}</td>
                 <td className="py-3 px-4 border">
                   <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-sm">
                     {review.review_type || 'Optional'}

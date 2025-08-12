@@ -67,7 +67,7 @@ const ReviewScheduling = () => {
           onClick={() => handleOptionSelect('guide')}
           className="p-6 border border-gray-300 rounded-lg cursor-pointer hover:bg-purple-50 hover:border-purple-300 transition-colors"
         >
-          <h2 className="text-xl font-semibold text-purple-700 mb-2">Schedule Review as Guide</h2>
+          <h2 className="text-xl font-semibold text-purple-700 mb-2">Schedule Regular Review as Guide</h2>
           <p className="text-gray-600">Schedule regular reviews for teams you are guiding</p>
         </div>
         
@@ -79,6 +79,7 @@ const ReviewScheduling = () => {
           <p className="text-gray-600">Schedule additional optional reviews for your teams</p>
         </div>
         
+        {/*
         <div 
           onClick={() => handleOptionSelect('subExpert')}
           className="p-6 border border-gray-300 rounded-lg cursor-pointer hover:bg-purple-50 hover:border-purple-300 transition-colors"
@@ -87,6 +88,7 @@ const ReviewScheduling = () => {
           <p className="text-gray-600">Schedule reviews for teams you are assigned to as sub-expert</p>
         </div>
         
+
         <div 
           onClick={() => handleOptionSelect('optionalSubExpert')}
           className="p-6 border border-gray-300 rounded-lg cursor-pointer hover:bg-purple-50 hover:border-purple-300 transition-colors"
@@ -94,6 +96,8 @@ const ReviewScheduling = () => {
           <h2 className="text-xl font-semibold text-purple-700 mb-2">Schedule Optional Review as Sub-Expert</h2>
           <p className="text-gray-600">Schedule additional optional reviews as sub-expert</p>
         </div>
+        
+        */}
         
         <button
           onClick={handleOptionalReviews}

@@ -32,11 +32,11 @@ const ReviewProgress = () => {
     
     try {
       const response = await axios.get(
-        `http://localhost:5000/review-progress/${regNum}/${teamId}`, 
+        `http://localhost:5000/student/review-progress/${regNum}/${teamId}`, 
         { params: { semester, review_type: reviewType } }
       );
       
-      if (response.data.status) {
+      if (response.data && response.data.status) {
         setReviewData(response.data.data);
         if (response.data.data.overall_status !== 'Completed') {
           await checkOptionalReviewEligibility(regNum, semester, reviewType);
@@ -44,10 +44,14 @@ const ReviewProgress = () => {
           setIsOptionalReviewEligible(false);
         }
       } else {
-        setError(response.data.error || 'No data found');
+        setError(response.data?.message || 'No data found');
       }
     } catch (err) {
-      setError(err.response?.data?.error || err.message || 'Failed to fetch data');
+      const errorMessage = error.response?.data?.message ||
+                           err.response?.data?.error ||
+                           err.message ||
+                           'Failed to fetch data';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -60,7 +64,7 @@ const ReviewProgress = () => {
         `http://localhost:5000/api/optional-reviews/eligibility/${regNum}`,
         { params: { semester, review_type: reviewType } }
       );
-      setIsOptionalReviewEligible(response.data.isEligible);
+      setIsOptionalReviewEligible(response.data.isEligible || false);
     } catch (err) {
       console.error('Optional review eligibility check failed:', err);
       setIsOptionalReviewEligible(false);
@@ -175,7 +179,7 @@ const ReviewProgress = () => {
       {error && (
         <div className="mb-6 p-4 bg-red-100 border-l-4 border-red-500 text-red-700">
           <p className="font-bold">Error</p>
-          <p>{error}</p>
+          <p>{typeof error === 'object' ? JSON.stringify(error) : error}</p>
         </div>
       )}
 
