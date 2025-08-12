@@ -6,50 +6,114 @@ const isOptionalReviewEnabled = () => {
     
     return new Promise((resolve, reject) => {
         db.query(query, (err, result) => {
-            if (err) return reject(err);
-            resolve(result[0]?.optional_review_access === 'enabled');
+            if (err) {
+                console.error("Error checking optional review access:", err);
+                return reject(err);
+            }
+            
+            if (!result || result.length === 0) {
+                console.log("No admin access record found");
+                return resolve(false);
+            }
+            
+            const isEnabled = result[0].optional_review_access === 'enabled';
+            console.log(`Optional review access is ${isEnabled ? 'ENABLED' : 'DISABLED'}`);
+            resolve(isEnabled);
         });
     });
 };
 
-// Check if student is absent in both evaluations
-const isStudentAbsent = (student_reg_num, semester, review_type) => {
-    // Only check tables for the specific semester
-    const tables = semester === '7' 
-        ? [
-            `s7_${review_type === 'review-1' ? 'first' : 'second'}_review_marks_byguide`,
-            `s7_${review_type === 'review-1' ? 'first' : 'second'}_review_marks_bysubexpert`
+const getEligibleReviews = async (student_reg_num, semester) => {
+  try {
+    const tables = semester === '7'
+      ? [
+          { table: 's7_first_review_marks_byguide', type: 'review-1' },
+          { table: 's7_second_review_marks_byguide', type: 'review-2' }
         ]
-        : [
-            `s5_s6_${review_type === 'review-1' ? 'first' : 'second'}_review_marks_byguide`,
-            `s5_s6_${review_type === 'review-1' ? 'first' : 'second'}_review_marks_bysubexpert`
+      : [
+          { table: 's5_s6_first_review_marks_byguide', type: 'review-1' },
+          { table: 's5_s6_second_review_marks_byguide', type: 'review-2' }
         ];
+
+    let eligibleReviews = [];
+
+    for (const { table, type } of tables) {
+      const query = `
+        SELECT updated_at, attendance
+        FROM ${table}
+        WHERE student_reg_num = ? AND semester = ? LIMIT 1
+      `;
+      const [result] = await new Promise((resolve, reject) => {
+        db.query(query, [student_reg_num, semester], (err, res) => {
+          if (err) return reject(err);
+          resolve(res);
+        });
+      });
+
+      if (result && result.attendance === 'absent') {
+        eligibleReviews.push({
+          review_type: type,
+          updated_at: result.updated_at
+        });
+      }
+    }
+
+    return eligibleReviews;  // Just return the data, don't handle response here
+
+  } catch (error) {
+    console.error("Error fetching eligible reviews:", error);
+    throw error;  // Throw the error to be handled by the controller
+  }
+};
+
+
+// Check if student is absent in either review-1 or review-2
+const isStudentAbsentInAnyReview = (student_reg_num, semester) => {
+    console.log(`Checking absence for ${student_reg_num} in semester ${semester}`);
+    
+    const tables = semester === '7' 
+        ? ['s7_first_review_marks_byguide', 's7_second_review_marks_byguide']
+        : ['s5_s6_first_review_marks_byguide', 's5_s6_second_review_marks_byguide'];
+
+    console.log(`Checking tables: ${tables.join(', ')}`);
 
     const queries = tables.map(table => {
         const query = `
             SELECT attendance FROM ${table} 
             WHERE student_reg_num = ? 
             AND semester = ?
-            AND review_type = ?
             LIMIT 1
         `;
         return new Promise((resolve, reject) => {
-            db.query(query, [student_reg_num, semester, review_type], (err, result) => {
-                if (err) return reject(err);
-                resolve(result.length > 0 && result[0].attendance === 'absent');
+            db.query(query, [student_reg_num, semester], (err, result) => {
+                if (err) {
+                    console.error(`Error checking ${table}:`, err);
+                    return reject(err);
+                }
+                const isAbsent = result.length > 0 && result[0].attendance === 'absent';
+                console.log(`${table} result:`, { 
+                    recordExists: result.length > 0, 
+                    attendance: result[0]?.attendance, 
+                    isAbsent 
+                });
+                resolve(isAbsent);
             });
         });
     });
 
     return Promise.all(queries)
-        .then(results => results.every(result => result === true))
-        .catch(err => {
-            console.error('Error checking student attendance:', err);
-            throw err;
+        .then(results => {
+            const isAbsentInAny = results.some(result => result === true);
+            console.log(`Final result for ${student_reg_num}:`, { results, isAbsentInAny });
+            return isAbsentInAny;
+        })
+        .catch(error => {
+            console.error("Error in isStudentAbsentInAnyReview:", error);
+            throw error;
         });
 };
 
-// Check if student already has an optional review request
+// Check if student already has an optional review request for any review type in this semester
 const hasExistingRequest = (student_reg_num, semester) => {
     const query = `
         SELECT COUNT(*) as count FROM optional_review_requests
@@ -152,7 +216,6 @@ const createRequest = (requestData) => {
 };
 
 
-
 // Get all optional review requests (for admin view)
 const getAllRequests = () => {
     const query = `
@@ -186,12 +249,14 @@ const updateRequestStatus = (request_id, status, rejection_reason = null) => {
     });
 };
 
+
 module.exports = {
     getTeamDetails,
     getTeamMembers,
+    getEligibleReviews,
     verifyTeamMembership,
     isOptionalReviewEnabled,
-    isStudentAbsent,
+   isStudentAbsentInAnyReview,
     hasExistingRequest,
     createRequest,
     getAllRequests,

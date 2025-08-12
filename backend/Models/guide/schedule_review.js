@@ -73,7 +73,7 @@ const get_schedules_by_guide = (guide_reg_num) => {
     const query = `
         SELECT * FROM regular_review_schedules 
         WHERE guide_reg_num = ?
-        ORDER BY date, time
+        ORDER BY date, start_time
     `;
     return new Promise((resolve, reject) => {
         db.query(query, [guide_reg_num], (err, result) => {
@@ -87,7 +87,7 @@ const updateReviewStatus = (reviewId, guideRegNum, newStatus) => {
   return new Promise((resolve, reject) => {
     const query = `
       UPDATE regular_review_schedules 
-      SET status = ? 
+      SET guide_review_status = ? 
       WHERE review_id = ? AND guide_reg_num = ?
     `;
     db.query(query, [newStatus, reviewId, guideRegNum], (err, result) => {

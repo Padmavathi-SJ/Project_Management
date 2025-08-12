@@ -1,5 +1,6 @@
 const {
     getRequestDetailsById,
+    getSubExpertFromTeam,
     scheduleOptionalReview,
      getGuideReviews,
   getSubExpertReviews,
@@ -151,13 +152,28 @@ const submitOptionalReviewMarks = async (req, res) => {
 const scheduleReview = async (req, res) => {
   try {
     const { user_reg_num } = req.params;
-    const { request_id, venue, date, time, meeting_link } = req.body;
+    const { request_id, review_mode, venue, date, start_time, end_time, meeting_link } = req.body;
 
-    // Validate required fields
-    if (!request_id || !date || !time) {
+    // Debug: Log incoming values
+    console.log('Received values:', {
+      user_reg_num,
+      request_id,
+      review_mode,
+      date,
+      start_time,
+      end_time
+    });
+
+    // Validate required fields - check for empty strings too
+    if (!user_reg_num || user_reg_num.trim() === '' ||
+        !request_id || request_id.toString().trim() === '' ||
+        !date || date.trim() === '' ||
+        !start_time || start_time.trim() === '' ||
+        !end_time || end_time.trim() === '' ||
+        !review_mode || review_mode.trim() === '') {
       return res.status(400).json({
         status: false,
-        error: "Request ID, date, and time are required"
+        error: "All fields are required: guide registration number, request ID, date, start time, end time, and review mode"
       });
     }
 
@@ -170,16 +186,26 @@ const scheduleReview = async (req, res) => {
       });
     }
 
-    // Determine user type and verify authorization
-    let userType = null;
-    if (request.guide_reg_num === user_reg_num) {
-      userType = 'guide';
-    } else if (request.sub_expert_reg_num === user_reg_num) {
-      userType = 'sub_expert';
-    } else {
+    // Validate the guide from request matches the guide in URL
+    if (request.guide_reg_num !== user_reg_num) {
       return res.status(403).json({
         status: false,
         error: "You are not authorized to schedule this review"
+      });
+    }
+
+    // Validate review mode specific fields
+    if (review_mode === 'online' && (!meeting_link || meeting_link.trim() === '')) {
+      return res.status(400).json({
+        status: false,
+        error: "Meeting link is required for online reviews"
+      });
+    }
+
+    if (review_mode === 'offline' && (!venue || venue.trim() === '')) {
+      return res.status(400).json({
+        status: false,
+        error: "Venue is required for offline reviews"
       });
     }
 
@@ -187,21 +213,23 @@ const scheduleReview = async (req, res) => {
     const reviewData = {
       review_id: `OR-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       student_reg_num: request.student_reg_num,
+      guide_reg_num: user_reg_num,
       sub_expert_reg_num: request.sub_expert_reg_num,
-      guide_reg_num: request.guide_reg_num,
       team_id: request.team_id,
       project_id: request.project_id,
       semester: request.semester,
       review_type: request.review_type,
-      venue: venue || 'To be determined',
+      review_mode,
+      venue: review_mode === 'offline' ? venue : null,
       date,
-      time,
-      meeting_link: meeting_link || null,
+      start_time,
+      end_time,
+      meeting_link: review_mode === 'online' ? meeting_link : null,
       request_id
     };
 
     // Schedule the review
-    await scheduleOptionalReview(reviewData, userType);
+    await scheduleOptionalReview(reviewData);
 
     return res.json({
       status: true,
@@ -217,6 +245,7 @@ const scheduleReview = async (req, res) => {
     });
   }
 };
+
 
 const getOptionalReviews = async (req, res) => {
   try {

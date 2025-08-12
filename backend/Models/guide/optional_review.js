@@ -111,8 +111,8 @@ const getGuideStudents = (guide_reg_num) => {
 const updateGuideReviewStatus = (reviewId, guideRegNum, newStatus) => {
   return new Promise((resolve, reject) => {
     const query = `
-      UPDATE optional_review_schedules_byguide
-      SET status = ?
+      UPDATE optional_review_schedules
+      SET guide_review_status = ?
       WHERE review_id = ? AND guide_reg_num = ?
     `;
     
@@ -129,7 +129,7 @@ const updateGuideReviewStatus = (reviewId, guideRegNum, newStatus) => {
 const getGuideReviewById = (reviewId, guideRegNum) => {
   return new Promise((resolve, reject) => {
     const query = `
-      SELECT * FROM optional_review_schedules_byguide
+      SELECT * FROM optional_review_schedules
       WHERE review_id = ? AND guide_reg_num = ?
     `;
     

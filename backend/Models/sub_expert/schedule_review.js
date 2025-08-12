@@ -70,9 +70,9 @@ const create_sub_expert_review_schedule = (reviewData) => {
 
 const get_schedules_by_sub_expert = (sub_expert_reg_num) => {
     const query = `
-        SELECT * FROM sub_expert_review_schedules 
+        SELECT * FROM regular_review_schedules 
         WHERE sub_expert_reg_num = ?
-        ORDER BY date, time
+        ORDER BY date, start_time
     `;
     return new Promise((resolve, reject) => {
         db.query(query, [sub_expert_reg_num], (err, result) => {
@@ -85,8 +85,8 @@ const get_schedules_by_sub_expert = (sub_expert_reg_num) => {
 const updateReviewStatus = (reviewId, subExpertRegNum, newStatus) => {
     return new Promise((resolve, reject) => {
         const query = `
-        update sub_expert_review_schedules
-        set status = ?
+        update regular_review_schedules
+        set sub_expert_review_status = ?
         where review_id = ? and sub_expert_reg_num = ?
         `;
         db.query(query, [newStatus, reviewId, subExpertRegNum], (err, result) => {
@@ -103,7 +103,7 @@ const updateReviewStatus = (reviewId, subExpertRegNum, newStatus) => {
 const getReviewById = (reviewId, subExpertRegNum) => {
   return new Promise((resolve, reject) => {
     const query = `
-      SELECT * FROM sub_expert_review_schedules 
+      SELECT * FROM regular_review_schedules 
       WHERE review_id = ? AND sub_expert_reg_num = ?
     `;
     db.query(query, [reviewId, subExpertRegNum], (err, result) => {

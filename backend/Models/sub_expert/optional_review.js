@@ -105,8 +105,8 @@ const scheduleOptionalReview = (reviewData) => {
 const updateSubExpertReviewStatus = (reviewId, subExpertRegNum, newStatus) => {
   return new Promise((resolve, reject) => {
     const query = `
-      UPDATE optional_review_schedules_bysubexpert
-      SET status = ?
+      UPDATE optional_review_schedules
+      SET sub_expert_review_status = ?
       WHERE review_id = ? AND sub_expert_reg_num = ?
     `;
     
@@ -123,7 +123,7 @@ const updateSubExpertReviewStatus = (reviewId, subExpertRegNum, newStatus) => {
 const getSubExpertReviewById = (reviewId, subExpertRegNum) => {
   return new Promise((resolve, reject) => {
     const query = `
-      SELECT * FROM optional_review_schedules_bysubexpert
+      SELECT * FROM optional_review_schedules
       WHERE review_id = ? AND sub_expert_reg_num = ?
     `;
     

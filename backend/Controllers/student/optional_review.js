@@ -2,62 +2,92 @@ const {
     isOptionalReviewEnabled,
     verifyTeamMembership,
     getTeamDetails,
-    isStudentAbsent,
+    getEligibleReviews,
+     isStudentAbsentInAnyReview,
     hasExistingRequest,
     createRequest,
     getAllRequests,
     updateRequestStatus
 } = require('../../Models/student/optional_review.js');
 
-// In your optional_review controller
+
 const checkEligibility = async (req, res) => {
   const { reg_num } = req.params;
-  const { semester, review_type } = req.query;
+  const { semester } = req.query;
 
   try {
+    console.log(`Checking eligibility for ${reg_num} in semester ${semester}`);
+    
     // 1. Check if optional reviews are enabled
     const isEnabled = await isOptionalReviewEnabled();
+    console.log(`Optional reviews enabled: ${isEnabled}`);
+    
     if (!isEnabled) {
       return res.json({
+        isEnabled: false,
         isEligible: false,
         error: "Optional reviews are currently disabled by admin"
       });
     }
 
-    // 2. Check if student is absent in both evaluations
-    const isAbsent = await isStudentAbsent(reg_num, semester, review_type);
+    // 2. Check if student is absent in any review
+    const isAbsent = await isStudentAbsentInAnyReview(reg_num, semester);
+    console.log(`Student absent in any review: ${isAbsent}`);
+    
     if (!isAbsent) {
       return res.json({
+        isEnabled: true,
         isEligible: false,
-        error: "You must be absent in both evaluations to request an optional review"
+        error: "You must be absent in at least one review to request an optional review"
       });
     }
 
-    // 3. Check if student already has a request
+    // 3. Check if student already has a request this semester
     const hasRequest = await hasExistingRequest(reg_num, semester);
+    console.log(`Existing request found: ${hasRequest}`);
+    
     if (hasRequest) {
       return res.json({
+        isEnabled: true,
         isEligible: false,
-        error: "You have already submitted an optional review request for this semester"
+        error: "You can only submit one optional review request per semester"
       });
     }
 
+    console.log(`Student is eligible for optional review`);
     return res.json({
+      isEnabled: true,
       isEligible: true
     });
 
   } catch (error) {
     console.error("Error checking eligibility:", error);
     return res.status(500).json({
+      isEnabled: false,
       isEligible: false,
       error: "Internal server error"
     });
   }
 };
 
-// In your backend controller (optional_review.js)
+const fetchEligibleReviews = async (req, res) => {
+  const { student_reg_num } = req.params;  // Changed from reg_num to match route
+  const { semester } = req.query;
+  
+  try {
+    const eligibleReviews = await getEligibleReviews(student_reg_num, semester);
+    res.json({ eligibleReviews });
+  } catch (error) {
+    console.error("Error fetching eligible reviews:", error);
+    res.status(500).json({ 
+      error: "Internal server error",
+      details: error.message 
+    });
+  }
+};
+
 const submitRequest = async (req, res) => {
-  console.log("Received request body:", req.body); // Log incoming data
+  console.log("Received request body:", req.body);
   
   try {
     const { team_id, semester, review_type, student_reg_num, request_reason } = req.body;
@@ -89,21 +119,21 @@ const submitRequest = async (req, res) => {
       });
     }
 
-    // Check attendance
-    const isAbsent = await isStudentAbsent(student_reg_num, semester, review_type);
+    // Check if student is absent in the selected review type
+    const isAbsent = await isStudentAbsentInAnyReview(student_reg_num, semester, review_type);
     if (!isAbsent) {
       return res.status(400).json({
         status: false,
-        error: "Student must be absent in both evaluations"
+        error: `You must be absent in ${review_type === 'review-1' ? 'First' : 'Second'} Review to request this optional review`
       });
     }
 
-    // Check for existing request
+    // Check for existing request in this semester
     const hasRequest = await hasExistingRequest(student_reg_num, semester);
     if (hasRequest) {
       return res.status(400).json({
         status: false,
-        error: "Existing request found for this semester"
+        error: "You can only submit one optional review request per semester"
       });
     }
 
@@ -143,7 +173,6 @@ const submitRequest = async (req, res) => {
     });
   }
 };
-
 
 const fetchAllRequests = async (req, res) => {
     try {
@@ -227,6 +256,7 @@ const getProjectByTeam = async (req, res) => {
 
 module.exports = {
     checkEligibility,
+    fetchEligibleReviews,
     submitRequest,
     fetchAllRequests,
     updateRequest,

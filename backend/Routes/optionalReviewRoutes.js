@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { 
   checkEligibility, 
+  fetchEligibleReviews,
   submitRequest, 
   fetchAllRequests, 
   updateRequest,
@@ -44,6 +45,7 @@ router.post(
 
 // Student routes
 router.get('/eligibility/:reg_num', checkEligibility);
+router.get('/eligible-reviews/:student_reg_num', fetchEligibleReviews);
 router.post('/post-request', submitRequest);
 router.get('/projects/team/:team_id', getProjectByTeam);
 

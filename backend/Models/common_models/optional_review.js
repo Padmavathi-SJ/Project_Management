@@ -14,71 +14,77 @@ const getRequestDetailsById = (request_id) => {
   });
 };
 
-const scheduleOptionalReview = (reviewData, userType) => {
+const getSubExpertFromTeam = (team_id) => {
+  return new Promise((resolve, reject) => {
+    const query = `select sub_expert_reg_num from
+                  teams where team_id = ?
+                  `;
+        
+      db.query(query, [team_id], (err, results) => {
+        if(err) return reject(err);
+        resolve(results[0].sub_expert_reg_num);
+      })
+  })
+}
+
+const scheduleOptionalReview = (reviewData) => {
   return new Promise((resolve, reject) => {
     // Validate required fields
-    if (!reviewData.review_id || !reviewData.student_reg_num || !reviewData.team_id || 
-        !reviewData.project_id || !reviewData.semester || !reviewData.date || !reviewData.time) {
+    if (!reviewData.review_id || !reviewData.student_reg_num || !reviewData.guide_reg_num ||
+        !reviewData.team_id || !reviewData.project_id || !reviewData.semester || 
+        !reviewData.review_type || !reviewData.review_mode || !reviewData.date || 
+        !reviewData.start_time || !reviewData.end_time) {
       return reject(new Error('Missing required fields for scheduling review'));
     }
 
-    // Determine which table to use based on user type
-    const table = userType === 'guide' 
-      ? 'optional_review_schedules_byguide' 
-      : 'optional_review_schedules_bysubexpert';
+    // Validate review mode specific fields
+    if (reviewData.review_mode === 'online' && !reviewData.meeting_link) {
+      return reject(new Error('Meeting link is required for online reviews'));
+    }
 
-    const regNumField = userType === 'guide' ? 'guide_reg_num' : 'sub_expert_reg_num';
-    const regNumValue = userType === 'guide' ? reviewData.guide_reg_num : reviewData.sub_expert_reg_num;
+    if (reviewData.review_mode === 'offline' && !reviewData.venue) {
+      return reject(new Error('Venue is required for offline reviews'));
+    }
 
     const query = `
-      INSERT INTO ${table} (
+      INSERT INTO optional_review_schedules (
         review_id, 
         student_reg_num, 
-        ${regNumField}, 
+        guide_reg_num,
+        sub_expert_reg_num,
         team_id, 
         project_id,
         semester, 
         review_type, 
+        review_mode,
         venue, 
         date, 
-        time, 
-        meeting_link, 
-        status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        start_time, 
+        end_time,
+        meeting_link
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     
     const values = [
       reviewData.review_id,
       reviewData.student_reg_num,
-      regNumValue,
+      reviewData.guide_reg_num, // Now properly included
+      reviewData.sub_expert_reg_num,
       reviewData.team_id,
       reviewData.project_id,
       reviewData.semester,
       reviewData.review_type,
+      reviewData.review_mode,
       reviewData.venue || null,
       reviewData.date,
-      reviewData.time,
-      reviewData.meeting_link || null,
-      'Not completed'
+      reviewData.start_time,
+      reviewData.end_time,
+      reviewData.meeting_link || null
     ];
 
     db.query(query, values, (err, result) => {
       if (err) return reject(err);
-      
-      if (reviewData.request_id) {
-        db.query(
-          `UPDATE optional_review_requests 
-           SET review_status = 'completed' 
-           WHERE request_id = ?`,
-          [reviewData.request_id],
-          (updateErr) => {
-            if (updateErr) console.error('Error updating request status:', updateErr);
-            resolve(result);
-          }
-        );
-      } else {
-        resolve(result);
-      }
+      resolve(result);
     });
   });
 };
@@ -94,14 +100,15 @@ const getGuideReviews = (guide_reg_num) => {
         student_reg_num,
         semester,
         review_type,
-        CONCAT(date, ' ', time) AS scheduled_time,
+        review_mode,
+        CONCAT(date, ' ', start_time, ' ', end_time) AS scheduled_time,
         venue,
         meeting_link,
-        status,
+        guide_review_status,
         'guide' as user_role
-      FROM optional_review_schedules_byguide
+      FROM optional_review_schedules
       WHERE guide_reg_num = ?
-      ORDER BY date DESC, time DESC
+      ORDER BY date DESC, start_time DESC
     `;
     
     db.query(query, [guide_reg_num], (err, results) => {
@@ -121,14 +128,15 @@ const getSubExpertReviews = (sub_expert_reg_num) => {
         student_reg_num,
         semester,
         review_type,
-        CONCAT(date, ' ', time) AS scheduled_time,
+        review_mode,
+        CONCAT(date, ' ', start_time, ' ', end_time) AS scheduled_time,
         venue,
         meeting_link,
-        status,
+        sub_expert_review_status,
         'sub_expert' as user_role
-      FROM optional_review_schedules_bysubexpert
+      FROM optional_review_schedules
       WHERE sub_expert_reg_num = ?
-      ORDER BY date DESC, time DESC
+      ORDER BY date DESC, start_time DESC
     `;
     
     db.query(query, [sub_expert_reg_num], (err, results) => {
@@ -141,9 +149,9 @@ const getSubExpertReviews = (sub_expert_reg_num) => {
 const checkUserRole = (user_reg_num) => {
   return new Promise((resolve, reject) => {
     const query = `
-      SELECT 'guide' as role FROM optional_review_schedules_byguide WHERE guide_reg_num = ?
+      SELECT 'guide' as role FROM optional_review_schedules WHERE guide_reg_num = ?
       UNION
-      SELECT 'sub_expert' as role FROM optional_review_schedules_bysubexpert WHERE sub_expert_reg_num = ?
+      SELECT 'sub_expert' as role FROM optional_review_schedules WHERE sub_expert_reg_num = ?
       LIMIT 1
     `;
     
@@ -292,6 +300,7 @@ const getCompletedOptionalReviewStudents = (teamId) => {
 
 module.exports = {
     getRequestDetailsById,
+    getSubExpertFromTeam,
     scheduleOptionalReview,
      getGuideReviews,
   getSubExpertReviews,
