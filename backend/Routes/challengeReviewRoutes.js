@@ -18,7 +18,7 @@ const {
 router.get('/assignments/:reg_num', getAssignments);
 router.get('/scheduled-reviews/:reg_num', getScheduledReviews);
 router.post('/schedule/:reg_num', scheduleReview);
-router.patch('/:review_id/status', updateReviewStatus);
+router.patch('/:review_id/status/:reg_num', updateReviewStatus);
 
 router.get('/eligibility/:student_reg_num/:semester/:review_type', checkEligibility);
 router.get('/semester/:student_reg_num', getSemester);
