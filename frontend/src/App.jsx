@@ -46,6 +46,7 @@ import GoogleAuthHandler from "./components/Login/GoogleAuthHandler ";
 import BulkUploadUsers from "./components/Admin/BulkUploadUsers";
 import PrivateRoute from "./components/Login/PrivateRoute";
 import PublicRoute from "./components/Login/PublicRoute";
+import ChallengeReviewAssignment from './components/Admin/Challenge_review_assignment'
 
 import ReviewScheduling from "./components/guide/Review_Scheduling";
 import ReviewProgress from "./components/guide/Review_Progress";
@@ -59,8 +60,8 @@ import SubExpertScheduleOptionalReview from "./components/Subject_expert/schedul
 import OptionalReviewProgress from "./components/guide/OptionalReviewProgress";
 import AwardOptionalMarks from "./components/guide/OptionalAwardMarks";
 import ApplyChallengeReview from './components/Students/apply_challenge_review';
-import ChallengeReviewAssignment from './components/Admin/Challenge_review_assignment';
-
+import ChallengeReviews from './components/guide/challenge_reviews';
+import ScheduleChallengeReview from "./components/guide/schedule_challenge_review";
 /*
 import GuideScheduleReview from './components/guide/schedule_review';
 import SubExpertScheduleReview from './components/Subject_expert/Schedule_review';
@@ -195,6 +196,7 @@ function App() {
               <Route path="review_progress" element={<ReviewProgress />} />
               <Route path="team-details/:teamId" element={<Team_Details />} />
               <Route path="schedule-review" element={<ReviewScheduling />} />
+              <Route path="challenge_reviews" element={<ChallengeReviews />}/>
               <Route
                 path="award-marks/:reg_num/team/:team_id"
                 element={<AwardMarks />}
@@ -215,6 +217,9 @@ function App() {
                 path="award_optional_marks/:reg_num/team/:team_id"
                 element={<AwardOptionalMarks />}
               />
+              <Route path="schedule_challenge_review" element = {
+                <ScheduleChallengeReview />
+              } />
             </Route>
           </Route>
 

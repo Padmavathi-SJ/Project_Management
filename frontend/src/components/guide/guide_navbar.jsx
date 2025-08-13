@@ -99,6 +99,11 @@ function Guide_navbar({ isOpen, toggleSidebar }) {
           <p className={navText("review_progress")}>Review Progress</p>
         </Link>
 
+                <Link to="challenge_reviews" className={`${navDiv("challenge_reviews")} group`}>
+          <FileText size={24} className={navIcon("challenge_reviews")} />
+          <p className={navText("challenge_reviews")}>Challenge Reviews</p>
+        </Link>
+
         
         <button
           onClick={handleLogout}
