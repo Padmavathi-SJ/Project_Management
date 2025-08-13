@@ -45,11 +45,16 @@ const OptionalReviewProgress = () => {
 
   // ... rest of your component code remains the same ...
 
+// Example of optimistic update
 const handleStatusChange = async (reviewId, newStatus) => {
   try {
     setUpdatingStatus(true);
     
-    // Determine if it's a guide or sub-expert review by finding the review first
+    // Optimistically update the UI first
+    setReviews(prev => prev.map(review => 
+      review.review_id === reviewId ? { ...review, status: newStatus } : review
+    ));
+
     const reviewToUpdate = reviews.find(review => review.review_id === reviewId);
     if (!reviewToUpdate) {
       setError("Review not found");
@@ -63,13 +68,20 @@ const handleStatusChange = async (reviewId, newStatus) => {
 
     await instance.patch(endpoint, { status: newStatus });
     
-    // Update the single reviews state
-    setReviews(prev => prev.map(review => 
-      review.review_id === reviewId ? { ...review, status: newStatus } : review
-    ));
+    // If you want to be extra sure, you can refetch the data
+    const response = await instance.get(`/api/optional-reviews/get_scheduled_reviews/${userRegNum}`);
+    if (response.data.status) {
+      setReviews(response.data.data || []);
+    }
+    
   } catch (err) {
     console.error("Error updating status:", err);
     setError(err.response?.data?.error || err.message || "Failed to update status");
+    
+    // Revert the optimistic update if there was an error
+    setReviews(prev => prev.map(review => 
+      review.review_id === reviewId ? { ...review, status: reviewToUpdate.status } : review
+    ));
   } finally {
     setUpdatingStatus(false);
   }
@@ -146,7 +158,7 @@ const handleAwardMarks = (review) => {
                 <td className="py-3 px-4 border">{review.venue || 'Not specified'}</td>
                 <td className="py-3 px-4 border">
                   <select
-                    value={review.status}
+                    value={review.guide_review_status || review.sub_expert_review_status || 'Not completed'}
                     onChange={(e) => handleStatusChange(review.review_id, e.target.value)}
                     className="border rounded px-2 py-1 text-sm"
                     disabled={updatingStatus}
@@ -170,7 +182,7 @@ const handleAwardMarks = (review) => {
                   )}
                 </td>
                 <td className="py-3 px-4 border">
-                  {review.status === 'Completed' && (
+                  {(review.guide_review_status === 'Completed' || review.sub_expert_review_status === 'Completed') && (
                     <button
                       onClick={() => handleAwardMarks(review)}
                       className="px-3 py-1 bg-green-100 text-green-800 rounded hover:bg-green-200 text-sm"
