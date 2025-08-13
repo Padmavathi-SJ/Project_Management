@@ -51,11 +51,14 @@ router.get('/projects/team/:team_id', getProjectByTeam);
 
 router.post('/schedule_review/:user_reg_num', scheduleReview);
 router.get('/get_scheduled_reviews/:user_reg_num', getOptionalReviews)
+
+//to update optional review status
 router.patch('/guide/:review_id/status/:guide_reg_num',  updateGuideReviewStatusController);
 router.patch(
   '/sub_expert/:review_id/status/:sub_expert_reg_num',
   updateSubExpertReviewStatusController
 );
+
 router.get('/team/:team_id/eligible-students', getEligibleStudents);
 
 // Admin routes
