@@ -129,7 +129,7 @@ const getReviewerRole = (reg_num, review_id) => {
   });
 };
 
-//
+
 
 module.exports = {
   isUserPMC1,
