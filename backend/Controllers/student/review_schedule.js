@@ -1,11 +1,14 @@
 const { 
-    get_guide_reviews_by_team, 
-    get_sub_expert_reviews_by_team 
+    get_regular_reviews_by_team,
+    get_regular_reviews_with_details,
+    get_upcoming_regular_reviews,
+    get_upcoming_regular_reviews_with_details
 } = require('../../Models/student/review_schedule.js');
 
-// Fetch reviews scheduled by guide for a given team
-const fetch_guide_reviews_by_team = async (req, res) => {
+// Fetch regular review schedules for a given team
+const fetch_regular_reviews_by_team = async (req, res) => {
     const { team_id } = req.params;
+    const { details = 'false' } = req.query; // Optional parameter to include user details
 
     if (!team_id) {
         return res.status(400).json({
@@ -15,13 +18,22 @@ const fetch_guide_reviews_by_team = async (req, res) => {
     }
 
     try {
-        const reviews = await get_guide_reviews_by_team(team_id);
+        let reviews;
+        
+        if (details.toLowerCase() === 'true') {
+            reviews = await get_regular_reviews_with_details(team_id);
+        } else {
+            reviews = await get_regular_reviews_by_team(team_id);
+        }
+
         return res.json({ 
             status: true, 
-            reviews 
+            message: "Regular review schedules fetched successfully",
+            data: reviews,
+            count: reviews.length
         });
     } catch (error) {
-        console.log("Error fetching guide reviews: ", error);
+        console.log("Error fetching regular reviews: ", error);
         return res.status(500).json({ 
             status: false, 
             error: "Database Query Error" 
@@ -29,9 +41,10 @@ const fetch_guide_reviews_by_team = async (req, res) => {
     }
 };
 
-// Fetch reviews scheduled by sub-expert for a given team
-const fetch_sub_expert_reviews_by_team = async (req, res) => {
+// Fetch upcoming regular reviews for a team
+const fetch_upcoming_regular_reviews = async (req, res) => {
     const { team_id } = req.params;
+    const { details = 'false' } = req.query; // Optional parameter to include user details
 
     if (!team_id) {
         return res.status(400).json({
@@ -41,13 +54,22 @@ const fetch_sub_expert_reviews_by_team = async (req, res) => {
     }
 
     try {
-        const reviews = await get_sub_expert_reviews_by_team(team_id);
+        let reviews;
+        
+        if (details.toLowerCase() === 'true') {
+            reviews = await get_upcoming_regular_reviews_with_details(team_id);
+        } else {
+            reviews = await get_upcoming_regular_reviews(team_id);
+        }
+
         return res.json({ 
             status: true, 
-            reviews 
+            message: "Upcoming reviews fetched successfully",
+            data: reviews,
+            count: reviews.length
         });
     } catch (error) {
-        console.log("Error fetching sub-expert reviews: ", error);
+        console.log("Error fetching upcoming reviews: ", error);
         return res.status(500).json({ 
             status: false, 
             error: "Database Query Error" 
@@ -56,6 +78,6 @@ const fetch_sub_expert_reviews_by_team = async (req, res) => {
 };
 
 module.exports = {
-    fetch_guide_reviews_by_team,
-    fetch_sub_expert_reviews_by_team
+    fetch_regular_reviews_by_team,
+    fetch_upcoming_regular_reviews
 };

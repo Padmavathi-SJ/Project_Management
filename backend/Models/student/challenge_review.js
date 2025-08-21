@@ -2,10 +2,10 @@ const db = require('../../db.js');
 
 const isChallengeReviewEnabled = (review_type) => {
     const query = `
-        SELECT challenge_review_access, review_type 
+        SELECT challenge_review_access, challenge_review_type 
         FROM admin_accesses 
         WHERE challenge_review_access = 'enabled'
-        AND review_type = ?
+        AND challenge_review_type = ?
         LIMIT 1`;
     
     return new Promise((resolve, reject) => {
@@ -15,6 +15,7 @@ const isChallengeReviewEnabled = (review_type) => {
         });
     });
 };
+
 
 const hasExistingRequest = (student_reg_num, semester) => {
     const query = `
@@ -153,7 +154,7 @@ const submitChallengeReviewRequest = async (requestData) => {
 
 const getEnabledReviewTypes = () => {
     const query = `
-        SELECT review_type 
+        SELECT challenge_review_type 
         FROM admin_accesses 
         WHERE challenge_review_access = 'enabled'
     `;
@@ -163,7 +164,7 @@ const getEnabledReviewTypes = () => {
             if (err) return reject(err);
             
             // Extract just the review_type values from results
-            const enabledTypes = results.map(row => row.review_type);
+            const enabledTypes = results.map(row => row.challenge_review_type);
             resolve(enabledTypes);
         });
     });

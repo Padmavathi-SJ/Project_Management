@@ -16,16 +16,17 @@ const queryAsync = (sql, params, connection = null) => {
 };
 
 // Get currently enabled review type from admin_accesses
+// Get currently enabled review type from admin_accesses
 const getEnabledReviewType = async () => {
     try {
         const query = `
-            SELECT review_type 
+            SELECT challenge_review_type 
             FROM admin_accesses 
             WHERE challenge_review_access = 'enabled'
             LIMIT 1`;
         
         const results = await queryAsync(query);
-        return results[0]?.review_type || null;
+        return results[0]?.challenge_review_type || null; // Fixed: changed review_type to challenge_review_type
     } catch (error) {
         console.error('Error getting enabled review type:', error);
         throw error;
@@ -59,6 +60,7 @@ const getPendingRequests = async (cluster = null) => {
         throw error;
     }
 };
+
 
 // Get available staff for a cluster (filtered by designation hierarchy)
 const getAvailableStaffForCluster = async (cluster) => {
