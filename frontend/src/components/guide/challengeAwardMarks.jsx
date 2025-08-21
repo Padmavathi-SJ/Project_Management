@@ -10,18 +10,19 @@ const AwardChallengeMarks = () => {
     const [formData, setFormData] = useState({
         semester: reviewData?.semester || '',
         review_type: reviewData?.review_type || '',
-        user_type: reviewData?.user_role || 'pmc1', // Default to pmc1
+        user_type: reviewData?.user_role === 'pmc1' || reviewData?.user_role === 'pmc2' ? reviewData.user_role : 'pmc1',
         student_reg_num: reviewData?.student_reg_num || '',
         attendance: 'present',
-        marks: {}
+        // Marks fields - will be dynamically populated based on semester and review type
     });
 
     const [eligibleStudents, setEligibleStudents] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+    const [marksFields, setMarksFields] = useState({});
 
-    // Define evaluation parameters for challenge reviews
+    // Define evaluation parameters for challenge reviews based on your database schema
     const evaluationCriteria = {
         '5-6': {
             'review-1': {
@@ -36,44 +37,45 @@ const AwardChallengeMarks = () => {
                 Contributions_to_the_work_and_worklog: { max: 5, label: 'Contributions' }
             },
             'review-2': {
-                literature_review: { max: 5, label: 'Literature Review' },
-                Aim_Objective_of_the_project: { max: 5, label: 'Aim & Objective' },
-                Scope_of_the_project: { max: 5, label: 'Scope of Project' },
-                Need_for_the_current_study: { max: 5, label: 'Need for Study' },
-                Proposed_Methodology: { max: 10, label: 'Methodology' },
-                Project_work_Plan: { max: 5, label: 'Work Plan' },
-                Oral_Presentation: { max: 5, label: 'Presentation' },
-                Viva_Voce_PPT: { max: 5, label: 'Viva Voce' },
-                Contributions_to_the_work_and_worklog: { max: 5, label: 'Contributions' }
+                designs: { max: 5, label: 'Designs' },
+                novelty_of_the_project_partial_completion_of_report: { max: 5, label: 'Novelty & Partial Completion' },
+                analysis_of_results_and_discussions: { max: 5, label: 'Analysis & Discussion' },
+                originality_score_for_final_project_report: { max: 5, label: 'Originality Score' },
+                oral_presentation: { max: 5, label: 'Presentation' },
+                viva_voce_ppt: { max: 5, label: 'Viva Voce' },
+                contributions_to_the_work_and_worklog: { max: 5, label: 'Contributions' }
             }
         },
         '7': {
             'review-1': {
                 literature_review: { max: 10, label: 'Literature Review' },
-                Aim_Objective_of_the_project: { max: 5, label: 'Aim & Objective' },
-                Scope_of_the_project: { max: 5, label: 'Scope' },
-                Need_for_the_current_study: { max: 5, label: 'Need for Study' },
-                Proposed_Methodology: { max: 20, label: 'Methodology' },
-                Project_work_Plan: { max: 5, label: 'Work Plan' },
-                Oral_Presentation: { max: 10, label: 'Presentation' },
-                Viva_Voce_PPT: { max: 10, label: 'Viva Voce' },
-                Contributions_to_the_work_and_worklog: { max: 10, label: 'Contributions' }
+                aim_objective_of_the_project: { max: 5, label: 'Aim & Objective' },
+                scope_of_the_project: { max: 5, label: 'Scope' },
+                need_for_the_current_study: { max: 5, label: 'Need for Study' },
+                feasibility_analysis: { max: 5, label: 'Feasibility Analysis' },
+                proposed_methodology: { max: 10, label: 'Methodology' },
+                choice_of_components_modules_equipment: { max: 5, label: 'Component Choice' },
+                designs_hardware_software_architecture: { max: 5, label: 'Design Architecture' },
+                novelty_of_the_project_partial_completion: { max: 5, label: 'Novelty & Partial Completion' },
+                oral_presentation: { max: 5, label: 'Presentation' },
+                viva_voce: { max: 5, label: 'Viva Voce' },
+                contribution_to_the_work_and_worklog: { max: 5, label: 'Contributions' }
             },
             'review-2': {
-                literature_review: { max: 5, label: 'Literature Review' },
-                Aim_Objective_of_the_project: { max: 5, label: 'Aim & Objective' },
-                Scope_of_the_project: { max: 5, label: 'Scope of Project' },
-                Need_for_the_current_study: { max: 5, label: 'Need for Study' },
-                Proposed_Methodology: { max: 10, label: 'Methodology' },
-                Project_work_Plan: { max: 5, label: 'Work Plan' },
-                Oral_Presentation: { max: 5, label: 'Presentation' },
-                Viva_Voce_PPT: { max: 5, label: 'Viva Voce' },
-                Contributions_to_the_work_and_worklog: { max: 5, label: 'Contributions' }
+                project_work_plan: { max: 5, label: 'Work Plan' },
+                effective_utilization_of_modern_tools: { max: 5, label: 'Modern Tools Utilization' },
+                analysis_of_results_and_discussion: { max: 10, label: 'Analysis & Discussion' },
+                cost_benefit_analysis: { max: 5, label: 'Cost-Benefit Analysis' },
+                publications_conference_journal_patent: { max: 5, label: 'Publications/Patents', isText: true },
+                originality_score_for_final_project_report: { max: 5, label: 'Originality Score' },
+                oral_presentation: { max: 5, label: 'Presentation' },
+                viva_voce: { max: 5, label: 'Viva Voce' },
+                contributions_to_the_work_and_worklog: { max: 5, label: 'Contributions' }
             }
         }
     };
 
-    // Fetch eligible students who have completed challenge reviews
+    // Fetch eligible students
     useEffect(() => {
         if (reviewData?.student_reg_num) {
             setFormData(prev => ({
@@ -85,54 +87,94 @@ const AwardChallengeMarks = () => {
             }));
         }
 
-        const fetchEligibleStudents = async () => {
-            try {
-                setLoading(true);
-                setError('');
-                const response = await axios.get(`/api/challenge-reviews/team/${team_id}/eligible-challenge-students`);
-                setEligibleStudents(response.data?.data || []);
-            } catch (err) {
-                console.error("Error:", err.response?.data || err.message);
-                setError(err.response?.data?.error || 'Failed to load eligible students');
-            } finally {
-                setLoading(false);
-            }
-        };
+     // Inside the fetchData function
+const fetchData = async () => {
+    try {
+        setLoading(true);
+        setError('');
+        console.log("Fetching eligible students for team:", team_id);
+        const response = await axios.get(`/api/challenge-reviews/team/${team_id}/eligible-challenge-students`);
+        console.log("Fetched students:", response.data?.data);
+        setEligibleStudents(response.data?.data || []);
+    } catch (err) {
+        console.error("Error:", err.response?.data || err.message);
+        setError(err.response?.data?.error || 'Failed to load data');
+    } finally {
+        setLoading(false);
+    }
+};
         
-        fetchEligibleStudents();
+        fetchData();
     }, [team_id, reviewData]);
+
+    // Update marks fields when semester or review type changes
+    useEffect(() => {
+        if (formData.semester && formData.review_type) {
+            const semesterKey = formData.semester === '5' || formData.semester === '6' ? '5-6' : '7';
+            const criteria = evaluationCriteria[semesterKey]?.[formData.review_type] || {};
+            
+            setMarksFields(criteria);
+            
+            // Initialize form data for the new criteria
+            const newFormData = { ...formData };
+            Object.keys(criteria).forEach(field => {
+                if (newFormData[field] === undefined) {
+                    newFormData[field] = '';
+                }
+            });
+            
+            // Remove fields that are not in the current criteria
+            Object.keys(newFormData).forEach(field => {
+                if (!['semester', 'review_type', 'user_type', 'student_reg_num', 'attendance'].includes(field) && 
+                    !criteria[field]) {
+                    delete newFormData[field];
+                }
+            });
+            
+            setFormData(newFormData);
+        }
+    }, [formData.semester, formData.review_type]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({
             ...prev,
-            [name]: value,
-            // Reset marks when review type or semester changes
-            ...(name === 'review_type' || name === 'semester' ? { marks: {} } : {})
+            [name]: value
         }));
     };
 
     const handleMarkChange = (e) => {
         const { name, value } = e.target;
-        const numericValue = value === '' ? null : parseInt(value);
+        const fieldConfig = marksFields[name];
+        
+        let processedValue;
+        if (fieldConfig?.isText) {
+            processedValue = value;
+        } else {
+            processedValue = value === '' ? '' : Math.min(parseInt(value) || 0, fieldConfig?.max || 100);
+        }
         
         setFormData(prev => ({
             ...prev,
-            marks: {
-                ...prev.marks,
-                [name]: numericValue
-            }
+            [name]: processedValue
         }));
     };
 
     const handleAttendanceChange = (e) => {
         const { value } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            attendance: value,
-            // Clear marks if attendance is set to absent
-            marks: value === 'absent' ? {} : prev.marks
-        }));
+        const newFormData = {
+            ...formData,
+            attendance: value
+        };
+        
+        // Clear marks if attendance is set to absent
+        if (value === 'absent') {
+            Object.keys(marksFields).forEach(field => {
+                newFormData[field] = '';
+            });
+        }
+        
+        setFormData(newFormData);
     };
 
     const handleSubmit = async (e) => {
@@ -142,49 +184,80 @@ const AwardChallengeMarks = () => {
         setSuccess('');
 
         try {
+            // Prepare payload according to backend expectations
             const payload = {
+                user_type: formData.user_type,
                 semester: formData.semester,
                 review_type: formData.review_type,
-                user_type: formData.user_type,
                 student_reg_num: formData.student_reg_num,
-                attendance: formData.attendance,
-                ...(formData.attendance === 'present' && { marks: formData.marks })
+                attendance: formData.attendance
             };
+
+            // Add role-specific field
+            if (formData.user_type === 'pmc1') {
+                payload.guide_reg_num = reg_num;
+            } else if (formData.user_type === 'pmc2') {
+                payload.sub_expert_reg_num = reg_num;
+            }
+
+            // Add marks only if student is present
+            if (formData.attendance === 'present') {
+                const marks = {};
+                Object.keys(marksFields).forEach(key => {
+                    if (formData[key] !== '' && formData[key] !== undefined) {
+                        marks[key] = formData[key];
+                    }
+                });
+                payload.marks = marks;
+            }
 
             const endpoint = `/api/challenge-reviews/${formData.user_type}/${reg_num}/team/${team_id}/submit-challenge-marks`;
 
             const response = await axios.post(endpoint, payload);
 
             setSuccess('Challenge review marks submitted successfully!');
-            // Reset form
-            setFormData(prev => ({
-                ...prev,
-                marks: {},
+            
+            // Reset form but keep basic info
+            const resetFormData = {
+                semester: formData.semester,
+                review_type: formData.review_type,
+                user_type: formData.user_type,
+                student_reg_num: '',
                 attendance: 'present'
-            }));
+            };
+            
+            Object.keys(marksFields).forEach(field => {
+                resetFormData[field] = '';
+            });
+            
+            setFormData(resetFormData);
         } catch (err) {
             const backendError = err.response?.data?.error || 
                               err.response?.data?.message || 
                               'Failed to submit challenge review marks';
-            const errorDetails = err.response?.data?.details || '';
+            const missingFields = err.response?.data?.missing_fields || [];
             
-            setError(`${backendError} ${errorDetails ? `(${errorDetails})` : ''}`);
+            setError(`${backendError} ${missingFields.length > 0 ? `(Missing: ${missingFields.join(', ')})` : ''}`);
             console.error('Submission error:', err.response?.data || err.message);
         } finally {
             setLoading(false);
         }
     };
 
-    const getCurrentCriteria = () => {
-        if (!formData.semester || !formData.review_type) return null;
-        const semesterKey = formData.semester === '5' || formData.semester === '6' ? '5-6' : '7';
-        return evaluationCriteria[semesterKey]?.[formData.review_type] || null;
+    const calculateTotalMarks = () => {
+        if (formData.attendance === 'absent') return 0;
+        
+        let total = 0;
+        Object.entries(marksFields).forEach(([field, config]) => {
+            if (formData[field] && !isNaN(formData[field]) && !config.isText) {
+                total += parseInt(formData[field]);
+            }
+        });
+        return total;
     };
 
-    const currentCriteria = getCurrentCriteria();
-
     return (
-        <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-md">
+        <div className="max-w-6xl mx-auto p-6 bg-white rounded-lg shadow-md">
             <div className="border-b pb-4 mb-6">
                 <h2 className="text-2xl font-bold text-gray-800">Award Challenge Review Marks</h2>
                 <p className="text-sm text-gray-600 mt-1">
@@ -258,82 +331,105 @@ const AwardChallengeMarks = () => {
                 </div>
 
                 {/* Student Selection */}
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Student</label>
-                    <select
-                        name="student_reg_num"
-                        value={formData.student_reg_num}
-                        onChange={handleChange}
-                        required
-                        disabled={loading || eligibleStudents.length === 0}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:text-gray-500"
-                    >
-                        <option value="">Select Student</option>
-                        {eligibleStudents.length > 0 ? (
-                            eligibleStudents.map(student => (
-                                <option key={student.student_reg_num} value={student.student_reg_num}>
-                                    {student.student_reg_num}
-                                </option>
-                            ))
-                        ) : (
-                            <option disabled>
-                                {loading ? 'Loading...' : 'No eligible students found'}
-                            </option>
-                        )}
-                    </select>
-                </div>
+{/* Student Selection */}
+<div>
+    <label className="block text-sm font-medium text-gray-700 mb-1">Student</label>
+    <select
+        name="student_reg_num"
+        value={formData.student_reg_num}
+        onChange={handleChange}
+        required
+        disabled={loading || eligibleStudents.length === 0}
+        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 disabled:text-gray-500"
+    >
+        <option value="">Select Student</option>
+        {eligibleStudents.length > 0 ? (
+            eligibleStudents.map(student => (
+                <option key={student.reg_num || student.student_reg_num} 
+                        value={student.reg_num || student.student_reg_num}>
+                    {student.reg_num || student.student_reg_num} - {student.name || 'Student'}
+                </option>
+            ))
+        ) : (
+            <option disabled>
+                {loading ? 'Loading students...' : 'No eligible students found'}
+            </option>
+        )}
+    </select>
+</div>
 
-                {/* Attendance */}
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Attendance</label>
-                    <div className="flex space-x-4">
-                        <label className="inline-flex items-center">
-                            <input
-                                type="radio"
-                                name="attendance"
-                                value="present"
-                                checked={formData.attendance === 'present'}
-                                onChange={handleAttendanceChange}
-                                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
-                            />
-                            <span className="ml-2 text-gray-700">Present</span>
-                        </label>
-                        <label className="inline-flex items-center">
-                            <input
-                                type="radio"
-                                name="attendance"
-                                value="absent"
-                                checked={formData.attendance === 'absent'}
-                                onChange={handleAttendanceChange}
-                                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
-                            />
-                            <span className="ml-2 text-gray-700">Absent</span>
-                        </label>
-                    </div>
-                </div>
+{/* Attendance - Always visible */}
+<div className="mt-4">
+    <label className="block text-sm font-medium text-gray-700 mb-2">Attendance Status</label>
+    <div className="flex space-x-6">
+        <label className="inline-flex items-center">
+            <input
+                type="radio"
+                name="attendance"
+                value="present"
+                checked={formData.attendance === 'present'}
+                onChange={handleAttendanceChange}
+                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+            />
+            <span className="ml-2 text-gray-700">Present</span>
+        </label>
+        <label className="inline-flex items-center">
+            <input
+                type="radio"
+                name="attendance"
+                value="absent"
+                checked={formData.attendance === 'absent'}
+                onChange={handleAttendanceChange}
+                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+            />
+            <span className="ml-2 text-gray-700">Absent</span>
+        </label>
+    </div>
+    <p className="text-sm text-gray-500 mt-1">
+        Select "Absent" if the student did not attend the review
+    </p>
+</div>
 
                 {/* Evaluation Parameters (only shown if present) */}
-                {formData.attendance === 'present' && currentCriteria && formData.student_reg_num && (
+                {formData.attendance === 'present' && Object.keys(marksFields).length > 0 && formData.student_reg_num && (
                     <div className="mt-6">
                         <h3 className="text-lg font-medium text-gray-900 mb-4">Evaluation Parameters</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {Object.entries(currentCriteria).map(([param, { max, label }]) => (
+                            {Object.entries(marksFields).map(([param, { max, label, isText }]) => (
                                 <div key={param} className="space-y-1">
                                     <label className="block text-sm font-medium text-gray-700">
-                                        {label} (Max: {max})
+                                        {label} {!isText && `(Max: ${max})`}
                                     </label>
-                                    <input
-                                        type="number"
-                                        name={param}
-                                        min="0"
-                                        max={max}
-                                        value={formData.marks[param] ?? ''}
-                                        onChange={handleMarkChange}
-                                        required={formData.attendance === 'present'}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                                    />
+                                    {isText ? (
+                                        <input
+                                            type="text"
+                                            name={param}
+                                            value={formData[param] || ''}
+                                            onChange={handleMarkChange}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                            placeholder="Enter details"
+                                        />
+                                    ) : (
+                                        <input
+                                            type="number"
+                                            name={param}
+                                            min="0"
+                                            max={max}
+                                            value={formData[param] || ''}
+                                            onChange={handleMarkChange}
+                                            required
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                        />
+                                    )}
                                 </div>
                             ))}
+                        </div>
+                        
+                        {/* Total Marks Display */}
+                        <div className="mt-4 p-3 bg-gray-50 rounded-md">
+                            <p className="text-sm font-medium text-gray-700">
+                                Total Marks: <span className="text-lg font-bold">{calculateTotalMarks()}</span>
+                            </p>
                         </div>
                     </div>
                 )}

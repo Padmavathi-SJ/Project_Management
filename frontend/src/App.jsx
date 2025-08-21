@@ -220,7 +220,7 @@ function App() {
               />
               <Route
                 path="award_challenge_marks/:reg_num/team/:team_id"
-                element={<AwardOptionalMarks />}
+                element={<AwardChallengeMarks />}
               />
               <Route path="schedule_challenge_review" element = {
                 <ScheduleChallengeReview />
