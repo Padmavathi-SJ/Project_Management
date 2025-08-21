@@ -10,8 +10,8 @@ const {
 
 const {
     getAssignments,
-    getScheduledReviews,
     scheduleReview,
+    getScheduledReviews,
     updateReviewStatus
 } = require('../Controllers/common_controllers/challenge_review.js');
 

@@ -30,7 +30,7 @@ const studentReviewRoutes = require('./Routes/student_routes.js');
 
 const marksRoutes = require('./Routes/review_marks.js');
 const optionalReviewRouter = require('./Routes/optionalReviewRoutes.js');
-const challendeReviewRouter = require('./Routes/challengeReviewRoutes.js');
+const challengeReviewRouter = require('./Routes/challengeReviewRoutes.js');
 const adminRoutes = require("./Routes/admin_routes.js");
 
 
@@ -262,7 +262,7 @@ app.use("/", uploadRouter);
 app.use("/", mentorRoute);
 app.use("/", generalRoute);
 app.use("/api/optional-reviews", optionalReviewRouter);
-app.use("/api/challenge-reviews", challendeReviewRouter);
+app.use("/api/challenge-reviews", challengeReviewRouter);
 
 app.use("/api/guide", guideRoutes);
 app.use("/api/marks", marksRoutes);

@@ -54,6 +54,7 @@ exports.scheduleReview = async (req, res) => {
     }
 
     const reviewData = {
+      review_id: `OR-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       ...req.body,
       pmc1_reg_num: reg_num // Ensure the schedule is created with the senior as pmc1
     };

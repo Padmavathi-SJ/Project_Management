@@ -38,6 +38,38 @@ const getChallengeReviewAssignments = (staffRegNum) => {
   });
 };
 
+// Schedule a new challenge review
+const scheduleChallengeReview = (reviewData) => {
+  return new Promise((resolve, reject) => {
+    const query = `
+      INSERT INTO challenge_review_schedules 
+      (review_id, student_reg_num, pmc1_reg_num, pmc2_reg_num, team_id, project_id, 
+       semester, review_type, review_mode, venue, Date, start_time, end_time, meeting_link)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+    const values = [
+      reviewData.review_id,
+      reviewData.student_reg_num,
+      reviewData.pmc1_reg_num,
+      reviewData.pmc2_reg_num,
+      reviewData.team_id,
+      reviewData.project_id,
+      reviewData.semester,
+      reviewData.review_type,
+      reviewData.review_mode,
+      reviewData.venue,
+      reviewData.Date,
+      reviewData.start_time,
+      reviewData.end_time,
+      reviewData.meeting_link
+    ];
+    db.query(query, values, (err, result) => {
+      if (err) return reject(err);
+      resolve(result);
+    });
+  });
+};
+
 // Get scheduled challenge reviews for a staff member with role info
 const getScheduledChallengeReviews = (staffRegNum) => {
   return new Promise((resolve, reject) => {
@@ -61,36 +93,7 @@ const getScheduledChallengeReviews = (staffRegNum) => {
   });
 };
 
-// Schedule a new challenge review
-const scheduleChallengeReview = (reviewData) => {
-  return new Promise((resolve, reject) => {
-    const query = `
-      INSERT INTO challenge_review_schedules 
-      (student_reg_num, pmc1_reg_num, pmc2_reg_num, team_id, project_id, 
-       semester, review_type, review_mode, venue, Date, start_time, end_time, meeting_link)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `;
-    const values = [
-      reviewData.student_reg_num,
-      reviewData.pmc1_reg_num,
-      reviewData.pmc2_reg_num,
-      reviewData.team_id,
-      reviewData.project_id,
-      reviewData.semester,
-      reviewData.review_type,
-      reviewData.review_mode,
-      reviewData.venue,
-      reviewData.Date,
-      reviewData.start_time,
-      reviewData.end_time,
-      reviewData.meeting_link
-    ];
-    db.query(query, values, (err, result) => {
-      if (err) return reject(err);
-      resolve(result);
-    });
-  });
-};
+
 
 // Update review status
 const updateReviewStatus = (reviewId, staffType, newStatus) => {

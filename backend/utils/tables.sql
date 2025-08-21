@@ -1602,3 +1602,26 @@ CREATE TABLE s7_optional_second_review_marks_bysubexpert (
 );
 
 
+create table challenge_review_schedules
+(review_id varchar(20) not null primary key, 
+student_reg_num varchar(50),
+pmc1_reg_num varchar(50),
+pmc2_reg_num varchar(50),
+team_id varchar(50),
+project_id varchar(50),
+semester enum('5', '6', '7', '8'),
+review_type enum('review-1', 'review-2') not null default
+'review-1',
+review_mode enum('online', 'offline'),
+venue varchar(255) not null,
+Date date not null,
+start_time time,
+end_time time,
+meeting_link varchar(500),
+pmc1_review_status enum('Completed', 'Not completed',
+ 'Rescheduled') not null default 'Not completed',
+pmc2_review_status enum('Completed', 'Not completed',
+ 'Rescheduled') not null default 'Not completed'
+ );
+
+
