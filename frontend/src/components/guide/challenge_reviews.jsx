@@ -25,7 +25,6 @@ const ChallengeReviews = () => {
         setLoading(true);
         setError(null);
         
-        // Fetch both assignments and scheduled reviews
         const [assignmentsRes, reviewsRes] = await Promise.all([
           instance.get(`/api/challenge-reviews/assignments/${userRegNum}`),
           instance.get(`/api/challenge-reviews/scheduled-reviews/${userRegNum}`)
@@ -64,7 +63,6 @@ const ChallengeReviews = () => {
         status: newStatus
       });
       
-      // Update local state
       setScheduledReviews(prev => prev.map(review => 
         review.review_id === reviewId ? { 
           ...review, 
@@ -78,6 +76,19 @@ const ChallengeReviews = () => {
     }
   };
 
+  const handleAwardMarks = (review) => {
+    navigate(`/guide/award_challenge_marks/${userRegNum}/team/${review.team_id}`, {
+      state: {
+        reviewData: {
+          semester: review.semester,
+          review_type: review.review_type,
+          student_reg_num: review.student_reg_num,
+          user_role: review.pmc1_reg_num === userRegNum ? 'pmc1' : 'pmc2'
+        }
+      }
+    });
+  };
+
   const formatDateTime = (date, time) => {
     if (!date || !time) return 'Not scheduled';
     try {
@@ -89,7 +100,7 @@ const ChallengeReviews = () => {
     }
   };
 
- const renderAssignmentsTable = () => {
+  const renderAssignmentsTable = () => {
     return (
       <div className="overflow-x-auto shadow-md rounded-lg">
         <table className="min-w-full bg-white">
@@ -120,7 +131,6 @@ const ChallengeReviews = () => {
                 <td className="py-3 px-4">{assignment.pmc1_reg_num}</td>
                 <td className="py-3 px-4">{assignment.pmc2_reg_num}</td>
                 <td className="py-3 px-4">
-                  {/* Show Schedule button only if user is PMC1 for this assignment */}
                   {assignment.is_pmc1 && (
                     <button
                       onClick={() => handleScheduleReview(assignment)}
@@ -156,11 +166,12 @@ const ChallengeReviews = () => {
           </thead>
           <tbody>
             {scheduledReviews.map((review) => {
-              // Determine if current user is PMC1 or PMC2 for this review
               const isPMC1 = review.pmc1_reg_num === userRegNum;
               const isPMC2 = review.pmc2_reg_num === userRegNum;
               const currentStatus = isPMC1 ? review.pmc1_review_status : 
                                   isPMC2 ? review.pmc2_review_status : 'Not assigned';
+              const canAwardMarks = (isPMC1 && review.pmc1_review_status === 'Completed') || 
+                                   (isPMC2 && review.pmc2_review_status === 'Completed');
 
               return (
                 <tr key={review.review_id} className="border-b hover:bg-gray-50">
@@ -187,15 +198,25 @@ const ChallengeReviews = () => {
                   </td>
                   <td className="py-3 px-4 space-x-2">
                     {(isPMC1 || isPMC2) && (
-                      <select
-                        value={currentStatus}
-                        onChange={(e) => handleUpdateStatus(review.review_id, e.target.value)}
-                        className="border rounded px-2 py-1 text-sm"
-                      >
-                        <option value="Not completed">Not completed</option>
-                        <option value="Completed">Completed</option>
-                        <option value="Rescheduled">Rescheduled</option>
-                      </select>
+                      <>
+                        <select
+                          value={currentStatus}
+                          onChange={(e) => handleUpdateStatus(review.review_id, e.target.value)}
+                          className="border rounded px-2 py-1 text-sm"
+                        >
+                          <option value="Not completed">Not completed</option>
+                          <option value="Completed">Completed</option>
+                          <option value="Rescheduled">Rescheduled</option>
+                        </select>
+                        {canAwardMarks && (
+                          <button
+                            onClick={() => handleAwardMarks(review)}
+                            className="ml-2 px-3 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm"
+                          >
+                            Award Marks
+                          </button>
+                        )}
+                      </>
                     )}
                   </td>
                 </tr>

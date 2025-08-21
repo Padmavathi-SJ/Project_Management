@@ -62,6 +62,7 @@ import AwardOptionalMarks from "./components/guide/OptionalAwardMarks";
 import ApplyChallengeReview from './components/Students/apply_challenge_review';
 import ChallengeReviews from './components/guide/challenge_reviews';
 import ScheduleChallengeReview from "./components/guide/schedule_challenge_review";
+import AwardChallengeMarks from "./components/guide/challengeAwardMarks";
 /*
 import GuideScheduleReview from './components/guide/schedule_review';
 import SubExpertScheduleReview from './components/Subject_expert/Schedule_review';
@@ -215,6 +216,10 @@ function App() {
               />
               <Route
                 path="award_optional_marks/:reg_num/team/:team_id"
+                element={<AwardOptionalMarks />}
+              />
+              <Route
+                path="award_challenge_marks/:reg_num/team/:team_id"
                 element={<AwardOptionalMarks />}
               />
               <Route path="schedule_challenge_review" element = {
