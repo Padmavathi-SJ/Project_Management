@@ -63,6 +63,8 @@ import ApplyChallengeReview from './components/Students/apply_challenge_review';
 import ChallengeReviews from './components/guide/challenge_reviews';
 import ScheduleChallengeReview from "./components/guide/schedule_challenge_review";
 import AwardChallengeMarks from "./components/guide/challengeAwardMarks";
+import ExportData from "./components/Admin/export_data";
+
 /*
 import GuideScheduleReview from './components/guide/schedule_review';
 import SubExpertScheduleReview from './components/Subject_expert/Schedule_review';
@@ -184,6 +186,10 @@ function App() {
               <Route
                 path="timeline/weekloginsert"
                 element={<WeekLogUpdate />}
+              />
+               <Route
+                path="export_data"
+                element={<ExportData />}
               />
             </Route>
           </Route>

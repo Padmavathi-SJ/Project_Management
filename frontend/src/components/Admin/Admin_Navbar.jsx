@@ -111,6 +111,10 @@ function Admin_Navbar({ isOpen, toggleSidebar }) {
           <UploadCloud size={24} className={navIcon("timeline")} />
           <p className={navText("timeline")}>TimeLine</p>
         </Link>
+         <Link to="export_data" className={`${navDiv("export_data")} group`}>
+          <UploadCloud size={24} className={navIcon("export")} />
+          <p className={navText("export_data")}>Export Data</p>
+        </Link>
 
 
         {/* Logout */}

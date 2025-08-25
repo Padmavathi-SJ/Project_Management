@@ -10,7 +10,9 @@ const ReviewProgress = () => {
   const [error, setError] = useState(null);
   const [reviewData, setReviewData] = useState(null);
   const [isOptionalReviewEligible, setIsOptionalReviewEligible] = useState(false);
+  const [isChallengeReviewEligible, setIsChallengeReviewEligible] = useState(false);
   const [optionalReviewLoading, setOptionalReviewLoading] = useState(false);
+  const [challengeReviewLoading, setChallengeReviewLoading] = useState(false);
   const [formData, setFormData] = useState({
     studentRegNum: student_reg_num || '',
     teamId: team_id || '',
@@ -38,16 +40,20 @@ const ReviewProgress = () => {
       
       if (response.data && response.data.status) {
         setReviewData(response.data.data);
+        
+        // Check eligibility for optional and challenge reviews if review is not completed
         if (response.data.data.overall_status !== 'Completed') {
           await checkOptionalReviewEligibility(regNum, semester, reviewType);
+          await checkChallengeReviewEligibility(regNum, semester, reviewType);
         } else {
           setIsOptionalReviewEligible(false);
+          setIsChallengeReviewEligible(false);
         }
       } else {
         setError(response.data?.message || 'No data found');
       }
     } catch (err) {
-      const errorMessage = error.response?.data?.message ||
+      const errorMessage = err.response?.data?.message ||
                            err.response?.data?.error ||
                            err.message ||
                            'Failed to fetch data';
@@ -61,8 +67,12 @@ const ReviewProgress = () => {
     setOptionalReviewLoading(true);
     try {
       const response = await axios.get(
-        `http://localhost:5000/api/optional-reviews/eligibility/${regNum}`,
-        { params: { semester, review_type: reviewType } }
+        `http://localhost:5000/student/optional-review/eligibility/${regNum}`,
+        { params: { 
+          semester, 
+          review_type: reviewType,
+        team_id: teamp_id
+       } }
       );
       setIsOptionalReviewEligible(response.data.isEligible || false);
     } catch (err) {
@@ -73,8 +83,62 @@ const ReviewProgress = () => {
     }
   };
 
+  const checkChallengeReviewEligibility = async (regNum, semester, reviewType) => {
+    setChallengeReviewLoading(true);
+    try {
+      const response = await axios.get(
+        `http://localhost:5000/student/challenge-review/eligibility/${regNum}`,
+        { params: { 
+          semester, 
+          review_type: reviewType,
+          team_id: team_id
+       } }
+      );
+      setIsChallengeReviewEligible(response.data.isEligible || false);
+    } catch (err) {
+      console.error('Challenge review eligibility check failed:', err);
+      setIsChallengeReviewEligible(false);
+    } finally {
+      setChallengeReviewLoading(false);
+    }
+  };
+
+  // Add this function to handle the case when a student has completed multiple reviews
+  const getReviewPriorityInfo = () => {
+    if (!reviewData) return null;
+    
+    const reviewTypes = {
+      'regular': { priority: 1, name: 'Regular Review' },
+      'optional': { priority: 2, name: 'Optional Review' },
+      'challenge': { priority: 3, name: 'Challenge Review' }
+    };
+    
+    // If review is completed, show which type was used
+    if (reviewData.overall_status === 'Completed') {
+      return {
+        type: reviewData.review_mode,
+        name: reviewTypes[reviewData.review_mode]?.name || 'Unknown Review Type',
+        priority: reviewTypes[reviewData.review_mode]?.priority || 0
+      };
+    }
+    
+    return null;
+  };
+  
+  const reviewPriorityInfo = getReviewPriorityInfo();
+
+
   const handleOptionalReviewClick = () => {
     navigate(`/student/optional-review/${reviewData.student_reg_num}/${reviewData.team_id}`, {
+      state: {
+        semester: formData.semester,
+        reviewType: formData.reviewType
+      }
+    });
+  };
+
+  const handleChallengeReviewClick = () => {
+    navigate(`/student/challenge-review/${reviewData.student_reg_num}/${reviewData.team_id}`, {
       state: {
         semester: formData.semester,
         reviewType: formData.reviewType
@@ -90,6 +154,7 @@ const ReviewProgress = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
     setIsOptionalReviewEligible(false);
+    setIsChallengeReviewEligible(false);
     fetchReviewProgress(
       formData.studentRegNum, 
       formData.teamId, 
@@ -105,19 +170,54 @@ const ReviewProgress = () => {
   };
 
   const getReviewTypeDisplay = (reviewType, marksSource) => {
-    if (marksSource === 'optional_review') {
+    if (!marksSource) return reviewType === 'review-1' ? 'First Review' : 'Second Review';
+    
+    if (marksSource.includes('challenge')) {
+      return reviewType === 'review-1' ? 'Challenge First Review' : 'Challenge Second Review';
+    } else if (marksSource.includes('optional')) {
       return reviewType === 'review-1' ? 'Optional First Review' : 'Optional Second Review';
     }
     return reviewType === 'review-1' ? 'First Review' : 'Second Review';
   };
 
   const getReviewTypeColor = (reviewType, marksSource) => {
-    if (marksSource === 'optional_review') {
+    if (!marksSource) {
+      return reviewType === 'review-1' 
+        ? 'bg-blue-100 text-blue-800' 
+        : 'bg-purple-100 text-purple-800';
+    }
+    
+    if (marksSource.includes('challenge')) {
+      return 'bg-red-100 text-red-800';
+    } else if (marksSource.includes('optional')) {
       return 'bg-orange-100 text-orange-800';
     }
     return reviewType === 'review-1' 
       ? 'bg-blue-100 text-blue-800' 
       : 'bg-purple-100 text-purple-800';
+  };
+
+  const getMarksSourceDisplay = (marksSource) => {
+    if (!marksSource) return 'Not Available';
+    
+    if (marksSource.includes('challenge')) {
+      return 'Challenge Review';
+    } else if (marksSource.includes('optional')) {
+      return 'Optional Review';
+    }
+    return 'Regular Review';
+  };
+
+  // Calculate the average marks based on the review mode
+  const calculateAverageMarks = () => {
+    if (!reviewData) return 'N/A';
+    
+    // If the review is completed, use the awarded_marks from the backend
+    if (reviewData.overall_status === 'Completed') {
+      return reviewData.awarded_marks ?? 'N/A';
+    }
+    
+    return 'N/A';
   };
 
   return (
@@ -214,6 +314,17 @@ const ReviewProgress = () => {
               </div>
             </div>
             
+             {reviewData && reviewPriorityInfo && (
+        <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4">
+          <p className="text-blue-700">
+            <strong>Note:</strong> Your marks are from {reviewPriorityInfo.name} 
+            {reviewPriorityInfo.priority > 1 && 
+              ', which takes precedence over lower priority reviews'
+            }.
+          </p>
+        </div>
+      )}
+
             {/* Action Buttons - Only show if review is not completed */}
             {reviewData.overall_status !== 'Completed' && (
               <div className="mt-4 flex justify-end space-x-3">
@@ -228,6 +339,19 @@ const ReviewProgress = () => {
                   } focus:outline-none focus:ring-2 focus:ring-purple-500`}
                 >
                   {optionalReviewLoading ? 'Checking...' : 'Apply Optional Review'}
+                </button>
+                
+                {/* Challenge Review Button */}
+                <button
+                  onClick={handleChallengeReviewClick}
+                  disabled={!isChallengeReviewEligible || challengeReviewLoading}
+                  className={`px-4 py-2 rounded-md text-white ${
+                    isChallengeReviewEligible 
+                      ? 'bg-red-600 hover:bg-red-700' 
+                      : 'bg-gray-400 cursor-not-allowed'
+                  } focus:outline-none focus:ring-2 focus:ring-red-500`}
+                >
+                  {challengeReviewLoading ? 'Checking...' : 'Apply Challenge Review'}
                 </button>
               </div>
             )}
@@ -271,12 +395,12 @@ const ReviewProgress = () => {
                   <div className="flex items-center justify-between">
                     <span className="text-gray-600">Awarded Marks:</span>
                     <span className="text-xl font-bold">
-                      {reviewData.awarded_marks ?? 'N/A'}
+                      {calculateAverageMarks()}
                     </span>
                   </div>
                   <div className="mt-2">
                     <span className="text-sm text-gray-500">
-                      Source: {reviewData.marks_source === 'optional_review' ? 'Optional Review' : 'Regular Review'}
+                      Source: {getMarksSourceDisplay(reviewData.marks_source)}
                     </span>
                   </div>
                 </>
