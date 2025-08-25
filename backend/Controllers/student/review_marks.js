@@ -1,5 +1,10 @@
-const { get_average_marks, get_review_status } = require('../../Models/student/review_marks.js');
-const db = require('../../db.js'); // Make sure to import your db connection
+const { 
+    get_average_marks, 
+    get_review_status, 
+    check_challenge_review_eligibility,
+    check_optional_review_eligibility 
+} = require('../../Models/student/review_marks.js');
+const db = require('../../db.js');
 
 // Helper function for promise-based db queries
 const dbQuery = (query, params) => {
@@ -13,7 +18,7 @@ const dbQuery = (query, params) => {
 
 const fetch_average_marks = async (req, res) => {
     const { student_reg_num, team_id } = req.params;
-    const { semester, review_type } = req.query;
+    const { semester, review_type, review_mode = 'regular' } = req.query;
 
     if (!student_reg_num || !team_id || !semester || !review_type) {
         return res.status(400).json({
@@ -23,32 +28,28 @@ const fetch_average_marks = async (req, res) => {
     }
 
     try {
-        const averageMarks = await get_average_marks(
+        const marksResult = await get_average_marks(
             student_reg_num, 
             team_id, 
             semester, 
-            review_type
+            review_type,
+            review_mode
         );
 
-        // Determine marks source
-        const semesterPrefix = semester === '5' || semester === '6' ? 's5_s6' : `s${semester}`;
-        const reviewType = review_type === 'review-1' ? 'first' : 'second';
-        const regularGuideTable = `${semesterPrefix}_${reviewType}_review_marks_byguide`;
-        
-        const regularResults = await dbQuery(
-            `SELECT total_marks FROM ${regularGuideTable} 
-             WHERE student_reg_num = ? AND team_id = ? 
-             AND semester = ? AND review_type = ? 
-             AND attendance = 'present' AND total_marks IS NOT NULL`,
-            [student_reg_num, team_id, semester, review_type]
-        );
-        
-        const marks_source = regularResults.length > 0 ? 'regular_review' : 'optional_review';
+        if (!marksResult) {
+            return res.json({
+                status: true,
+                average_marks: null,
+                marks_source: null,
+                review_mode: null
+            });
+        }
 
         return res.json({
             status: true,
-            average_marks: averageMarks,
-            marks_source: marks_source
+            average_marks: marksResult.average_marks,
+            marks_source: `${review_mode}_review`,
+            review_mode: review_mode
         });
         
     } catch (error) {
@@ -73,32 +74,43 @@ const get_student_review_progress = async (req, res) => {
     }
 
     try {
-        const { reviewStatus, guideStatus, subExpertStatus } = await get_review_status(
-            team_id, 
-            semester, 
-            review_type,
-            student_reg_num
-        );
-
+        // Check all review types in order of priority: regular -> optional -> challenge
+        const reviewTypes = ['regular', 'optional', 'challenge'];
+        let finalStatus = 'Not Completed';
         let average_marks = null;
         let marks_source = null;
-        
-        if (reviewStatus === 'Completed') {
-            average_marks = await get_average_marks(student_reg_num, team_id, semester, review_type);
-            
-            const semesterPrefix = semester === '5' || semester === '6' ? 's5_s6' : `s${semester}`;
-            const reviewType = review_type === 'review-1' ? 'first' : 'second';
-            const regularGuideTable = `${semesterPrefix}_${reviewType}_review_marks_byguide`;
-            
-            const regularResults = await dbQuery(
-                `SELECT total_marks FROM ${regularGuideTable} 
-                 WHERE student_reg_num = ? AND team_id = ? 
-                 AND semester = ? AND review_type = ? 
-                 AND attendance = 'present' AND total_marks IS NOT NULL`,
-                [student_reg_num, team_id, semester, review_type]
+        let review_mode = 'none';
+        let guideStatus = 'Not Completed';
+        let subExpertStatus = 'Not Completed';
+
+        for (const type of reviewTypes) {
+            const reviewStatus = await get_review_status(
+                team_id, 
+                semester, 
+                review_type,
+                student_reg_num,
+                type
             );
-            
-            marks_source = regularResults.length > 0 ? 'regular_review' : 'optional_review';
+
+            if (reviewStatus.reviewStatus === 'Completed') {
+                const marksResult = await get_average_marks(
+                    student_reg_num, 
+                    team_id, 
+                    semester, 
+                    review_type,
+                    type
+                );
+                
+                if (marksResult) {
+                    finalStatus = 'Completed';
+                    average_marks = marksResult.average_marks;
+                    review_mode = type;
+                    marks_source = `${type}_review`;
+                    guideStatus = reviewStatus.guideStatus;
+                    subExpertStatus = reviewStatus.subExpertStatus;
+                    break; // Stop checking once we find a completed review
+                }
+            }
         }
 
         return res.json({
@@ -110,9 +122,10 @@ const get_student_review_progress = async (req, res) => {
                 review_type,
                 guide_status: guideStatus,
                 sub_expert_status: subExpertStatus,
-                overall_status: reviewStatus,
+                overall_status: finalStatus,
                 awarded_marks: average_marks,
-                marks_source: marks_source
+                marks_source: marks_source,
+                review_mode: review_mode
             }
         });
     } catch (error) {
@@ -125,7 +138,77 @@ const get_student_review_progress = async (req, res) => {
     }
 };
 
+// Controller for challenge review eligibility check
+const check_challenge_review_eligibility_controller = async (req, res) => {
+    const { student_reg_num } = req.params;
+    const { semester, review_type } = req.query;
+
+    if (!student_reg_num || !semester || !review_type) {
+        return res.status(400).json({
+            status: false,
+            error: "Missing required parameters"
+        });
+    }
+
+    try {
+        const eligibility = await check_challenge_review_eligibility(
+            student_reg_num,
+            semester,
+            review_type
+        );
+
+        return res.json({
+            status: true,
+            isEligible: eligibility.isEligible,
+            reason: eligibility.reason
+        });
+    } catch (error) {
+        console.error("Error checking challenge review eligibility:", error);
+        return res.status(500).json({
+            status: false,
+            error: "Failed to check eligibility",
+            details: error.message
+        });
+    }
+};
+
+// Controller for optional review eligibility check
+const check_optional_review_eligibility_controller = async (req, res) => {
+    const { student_reg_num } = req.params;
+    const { semester, review_type } = req.query;
+
+    if (!student_reg_num || !semester || !review_type) {
+        return res.status(400).json({
+            status: false,
+            error: "Missing required parameters"
+        });
+    }
+
+    try {
+        const eligibility = await check_optional_review_eligibility(
+            student_reg_num,
+            semester,
+            review_type
+        );
+
+        return res.json({
+            status: true,
+            isEligible: eligibility.isEligible,
+            reason: eligibility.reason
+        });
+    } catch (error) {
+        console.error("Error checking optional review eligibility:", error);
+        return res.status(500).json({
+            status: false,
+            error: "Failed to check eligibility",
+            details: error.message
+        });
+    }
+};
+
 module.exports = {
     fetch_average_marks,
-    get_student_review_progress: get_student_review_progress // Fixed typo in export
+    get_student_review_progress,
+    check_challenge_review_eligibility_controller,
+    check_optional_review_eligibility_controller
 };

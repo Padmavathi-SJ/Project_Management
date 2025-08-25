@@ -10,66 +10,86 @@ const dbQuery = (query, params) => {
     });
 };
 
-// Helper function to determine table name
-const getTableName = (semester, review_type, evaluator_type) => {
+// Helper function to determine table name for regular reviews
+const getRegularTableName = (semester, review_type, evaluator_type) => {
     const prefix = semester === '7' ? 's7' : 's5_s6';
     const review = review_type === 'review-1' ? 'first_review' : 'second_review';
     const evaluator = evaluator_type === 'guide' ? 'byguide' : 'bysubexpert';
     return `${prefix}_${review}_marks_${evaluator}`;
 };
 
-const get_review_status = async (team_id, semester, review_type, student_reg_num) => {
+// Helper function to determine table name for optional reviews
+const getOptionalTableName = (semester, review_type, evaluator_type) => {
+    const prefix = semester === '7' ? 's7' : 's5_s6';
+    const review = review_type === 'review-1' ? 'first' : 'second';
+    const evaluator = evaluator_type === 'guide' ? 'byguide' : 'bysubexpert';
+    return `${prefix}_optional_${review}_review_marks_${evaluator}`;
+};
+
+// Helper function to determine table name for challenge reviews
+const getChallengeTableName = (semester, review_type, evaluator_type) => {
+    const prefix = semester === '7' ? 's7' : 's5_s6';
+    const review = review_type === 'review-1' ? 'first_review' : 'second_review';
+    const evaluator = evaluator_type === 'guide' ? 'bypmc1' : 'bypmc2';
+    return `${prefix}_challenge_${review}_marks_${evaluator}`;
+};
+
+const get_review_status = async (team_id, semester, review_type, student_reg_num, review_mode = 'regular') => {
     try {
-        // Check guide's attendance status in regular review
-        const guideQuery = `
-            SELECT attendance FROM ${getTableName(semester, review_type, 'guide')}
-            WHERE team_id = ? AND semester = ? AND review_type = ? AND student_reg_num = ?
-            LIMIT 1
-        `;
+        let guideQuery, subExpertQuery;
+        const params = [team_id, semester, review_type, student_reg_num];
         
-        // Check sub-expert's attendance status in regular review
-        const subExpertQuery = `
-            SELECT attendance FROM ${getTableName(semester, review_type, 'sub_expert')}
-            WHERE team_id = ? AND semester = ? AND review_type = ? AND student_reg_num = ?
-            LIMIT 1
-        `;
+        if (review_mode === 'challenge') {
+            guideQuery = `
+                SELECT attendance FROM ${getChallengeTableName(semester, review_type, 'guide')}
+                WHERE team_id = ? AND semester = ? AND review_type = ? AND student_reg_num = ?
+                LIMIT 1
+            `;
+            
+            subExpertQuery = `
+                SELECT attendance FROM ${getChallengeTableName(semester, review_type, 'sub_expert')}
+                WHERE team_id = ? AND semester = ? AND review_type = ? AND student_reg_num = ?
+                LIMIT 1
+            `;
+        } else if (review_mode === 'optional') {
+            guideQuery = `
+                SELECT attendance FROM ${getOptionalTableName(semester, review_type, 'guide')}
+                WHERE team_id = ? AND semester = ? AND review_type = ? AND student_reg_num = ?
+                LIMIT 1
+            `;
+            
+            subExpertQuery = `
+                SELECT attendance FROM ${getOptionalTableName(semester, review_type, 'sub_expert')}
+                WHERE team_id = ? AND semester = ? AND review_type = ? AND student_reg_num = ?
+                LIMIT 1
+            `;
+        } else {
+            guideQuery = `
+                SELECT attendance FROM ${getRegularTableName(semester, review_type, 'guide')}
+                WHERE team_id = ? AND semester = ? AND review_type = ? AND student_reg_num = ?
+                LIMIT 1
+            `;
+            
+            subExpertQuery = `
+                SELECT attendance FROM ${getRegularTableName(semester, review_type, 'sub_expert')}
+                WHERE team_id = ? AND semester = ? AND review_type = ? AND student_reg_num = ?
+                LIMIT 1
+            `;
+        }
 
         const [guideResult, subExpertResult] = await Promise.all([
-            dbQuery(guideQuery, [team_id, semester, review_type, student_reg_num]),
-            dbQuery(subExpertQuery, [team_id, semester, review_type, student_reg_num])
+            dbQuery(guideQuery, params),
+            dbQuery(subExpertQuery, params)
         ]);
 
-        // Check optional review tables if absent in regular review
-        let guidePresent = guideResult.length > 0 && guideResult[0].attendance === 'present';
-        let subExpertPresent = subExpertResult.length > 0 && subExpertResult[0].attendance === 'present';
-
-        // If absent in regular review, check optional review
-        if (!guidePresent || !subExpertPresent) {
-            const semesterPrefix = semester === '5' || semester === '6' ? 's5_s6' : `s${semester}`;
-            const reviewType = review_type === 'review-1' ? 'first' : 'second';
-            
-            const optionalGuideTable = `${semesterPrefix}_optional_${reviewType}_review_marks_byguide`;
-            const optionalSubExpertTable = `${semesterPrefix}_optional_${reviewType}_review_marks_bysubexpert`;
-
-            const [optionalGuideResult, optionalSubExpertResult] = await Promise.all([
-                dbQuery(`SELECT attendance FROM ${optionalGuideTable} WHERE student_reg_num = ? AND team_id = ? AND semester = ? AND review_type = ? LIMIT 1`, 
-                       [student_reg_num, team_id, semester, review_type]),
-                dbQuery(`SELECT attendance FROM ${optionalSubExpertTable} WHERE student_reg_num = ? AND team_id = ? AND semester = ? AND review_type = ? LIMIT 1`, 
-                       [student_reg_num, team_id, semester, review_type])
-            ]);
-
-            if (!guidePresent) {
-                guidePresent = optionalGuideResult.length > 0 && optionalGuideResult[0].attendance === 'present';
-            }
-            if (!subExpertPresent) {
-                subExpertPresent = optionalSubExpertResult.length > 0 && optionalSubExpertResult[0].attendance === 'present';
-            }
-        }
+        const guidePresent = guideResult.length > 0 && guideResult[0].attendance === 'present';
+        const subExpertPresent = subExpertResult.length > 0 && subExpertResult[0].attendance === 'present';
 
         return {
             guideStatus: guidePresent ? 'Completed' : 'Not Completed',
             subExpertStatus: subExpertPresent ? 'Completed' : 'Not Completed',
-            reviewStatus: (guidePresent && subExpertPresent) ? 'Completed' : 'Not Completed'
+            reviewStatus: (guidePresent && subExpertPresent) ? 'Completed' : 'Not Completed',
+            reviewMode: (guidePresent && subExpertPresent) ? review_mode : 'none'
         };
     } catch (error) {
         console.error("Error checking review status:", error);
@@ -77,50 +97,42 @@ const get_review_status = async (team_id, semester, review_type, student_reg_num
     }
 };
 
-const get_average_marks = async (student_reg_num, team_id, semester, review_type) => {
+
+const get_average_marks = async (student_reg_num, team_id, semester, review_type, review_mode = 'regular') => {
     try {
-        const semesterPrefix = semester === '5' || semester === '6' ? 's5_s6' : `s${semester}`;
-        const reviewType = review_type === 'review-1' ? 'first' : 'second';
+        let guideTable, subExpertTable;
         
-        // First check regular review tables
-        const regularGuideTable = `${semesterPrefix}_${reviewType}_review_marks_byguide`;
-        const regularSubExpertTable = `${semesterPrefix}_${reviewType}_review_marks_bysubexpert`;
+        if (review_mode === 'challenge') {
+            guideTable = getChallengeTableName(semester, review_type, 'guide');
+            subExpertTable = getChallengeTableName(semester, review_type, 'sub_expert');
+        } else if (review_mode === 'optional') {
+            guideTable = getOptionalTableName(semester, review_type, 'guide');
+            subExpertTable = getOptionalTableName(semester, review_type, 'sub_expert');
+        } else {
+            guideTable = getRegularTableName(semester, review_type, 'guide');
+            subExpertTable = getRegularTableName(semester, review_type, 'sub_expert');
+        }
 
-        // Query regular review marks first
-        const [regularGuideResults, regularSubExpertResults] = await Promise.all([
-            dbQuery(`SELECT total_marks, attendance FROM ${regularGuideTable} WHERE student_reg_num = ? AND team_id = ? AND semester = ? AND review_type = ?`, 
+        // Query marks from the specified review mode
+        const [guideResults, subExpertResults] = await Promise.all([
+            dbQuery(`SELECT total_marks, attendance FROM ${guideTable} 
+                    WHERE student_reg_num = ? AND team_id = ? AND semester = ? AND review_type = ?`, 
                    [student_reg_num, team_id, semester, review_type]),
-            dbQuery(`SELECT total_marks, attendance FROM ${regularSubExpertTable} WHERE student_reg_num = ? AND team_id = ? AND semester = ? AND review_type = ?`, 
+            dbQuery(`SELECT total_marks, attendance FROM ${subExpertTable} 
+                    WHERE student_reg_num = ? AND team_id = ? AND semester = ? AND review_type = ?`, 
                    [student_reg_num, team_id, semester, review_type])
         ]);
 
-        // Check if we have complete marks from regular review
-        const regularGuideMarks = regularGuideResults.length > 0 && regularGuideResults[0].attendance === 'present' ? regularGuideResults[0].total_marks : null;
-        const regularSubExpertMarks = regularSubExpertResults.length > 0 && regularSubExpertResults[0].attendance === 'present' ? regularSubExpertResults[0].total_marks : null;
+        const guideMarks = guideResults.length > 0 && guideResults[0].attendance === 'present' ? guideResults[0].total_marks : null;
+        const subExpertMarks = subExpertResults.length > 0 && subExpertResults[0].attendance === 'present' ? subExpertResults[0].total_marks : null;
 
-        if (regularGuideMarks !== null && regularSubExpertMarks !== null) {
-            return (regularGuideMarks + regularSubExpertMarks) / 2;
+        if (guideMarks !== null && subExpertMarks !== null) {
+            return {
+                average_marks: (guideMarks + subExpertMarks) / 2,
+                review_mode: review_mode
+            };
         }
 
-        // If missing marks in regular review, check optional review tables
-        const optionalGuideTable = `${semesterPrefix}_optional_${reviewType}_review_marks_byguide`;
-        const optionalSubExpertTable = `${semesterPrefix}_optional_${reviewType}_review_marks_bysubexpert`;
-
-        const [optionalGuideResults, optionalSubExpertResults] = await Promise.all([
-            dbQuery(`SELECT total_marks FROM ${optionalGuideTable} WHERE student_reg_num = ? AND team_id = ? AND semester = ? AND review_type = ? AND attendance = 'present'`, 
-                   [student_reg_num, team_id, semester, review_type]),
-            dbQuery(`SELECT total_marks FROM ${optionalSubExpertTable} WHERE student_reg_num = ? AND team_id = ? AND semester = ? AND review_type = ? AND attendance = 'present'`, 
-                   [student_reg_num, team_id, semester, review_type])
-        ]);
-
-        const optionalGuideMarks = optionalGuideResults.length > 0 ? optionalGuideResults[0].total_marks : null;
-        const optionalSubExpertMarks = optionalSubExpertResults.length > 0 ? optionalSubExpertResults[0].total_marks : null;
-
-        if (optionalGuideMarks !== null && optionalSubExpertMarks !== null) {
-            return (optionalGuideMarks + optionalSubExpertMarks) / 2;
-        }
-
-        console.log('No complete marks found from both evaluators');
         return null;
     } catch (error) {
         console.error("Error calculating average marks:", error);
@@ -140,33 +152,43 @@ const get_student_review_progress = async (req, res) => {
     }
 
     try {
-        const { reviewStatus, guideStatus, subExpertStatus } = await get_review_status(
-            team_id, 
-            semester, 
-            review_type,
-            student_reg_num
-        );
-
+        // Check all review types in order of priority: regular -> optional -> challenge
+        const reviewTypes = ['regular', 'optional', 'challenge'];
+        let finalStatus = 'Not Completed';
         let average_marks = null;
         let marks_source = null;
-        
-        if (reviewStatus === 'Completed') {
-            average_marks = await get_average_marks(student_reg_num, team_id, semester, review_type);
-            
-            // Determine marks source
-            const semesterPrefix = semester === '5' || semester === '6' ? 's5_s6' : `s${semester}`;
-            const reviewType = review_type === 'review-1' ? 'first' : 'second';
-            const regularGuideTable = `${semesterPrefix}_${reviewType}_review_marks_byguide`;
-            
-            const regularResults = await dbQuery(
-                `SELECT total_marks FROM ${regularGuideTable} 
-                 WHERE student_reg_num = ? AND team_id = ? 
-                 AND semester = ? AND review_type = ? 
-                 AND attendance = 'present' AND total_marks IS NOT NULL`,
-                [student_reg_num, team_id, semester, review_type]
+        let review_mode = 'none';
+        let guideStatus = 'Not Completed';
+        let subExpertStatus = 'Not Completed';
+
+        for (const type of reviewTypes) {
+            const reviewStatus = await get_review_status(
+                team_id, 
+                semester, 
+                review_type,
+                student_reg_num,
+                type
             );
-            
-            marks_source = regularResults.length > 0 ? 'regular_review' : 'optional_review';
+
+            if (reviewStatus.reviewStatus === 'Completed') {
+                const marksResult = await get_average_marks(
+                    student_reg_num, 
+                    team_id, 
+                    semester, 
+                    review_type,
+                    type
+                );
+                
+                if (marksResult) {
+                    finalStatus = 'Completed';
+                    average_marks = marksResult.average_marks;
+                    review_mode = type;
+                    marks_source = `${type}_review`;
+                    guideStatus = reviewStatus.guideStatus;
+                    subExpertStatus = reviewStatus.subExpertStatus;
+                    break; // Stop checking once we find a completed review
+                }
+            }
         }
 
         return res.json({
@@ -178,9 +200,10 @@ const get_student_review_progress = async (req, res) => {
                 review_type,
                 guide_status: guideStatus,
                 sub_expert_status: subExpertStatus,
-                overall_status: reviewStatus,
+                overall_status: finalStatus,
                 awarded_marks: average_marks,
-                marks_source: marks_source
+                marks_source: marks_source,
+                review_mode: review_mode
             }
         });
     } catch (error) {
@@ -193,8 +216,77 @@ const get_student_review_progress = async (req, res) => {
     }
 };
 
+
+
+// Improved eligibility checks
+const check_challenge_review_eligibility = async (student_reg_num, semester, review_type, team_id) => {
+    try {
+        // Check if student has already completed any type of review
+        const reviewTypes = ['regular', 'optional', 'challenge'];
+        
+        for (const type of reviewTypes) {
+            const status = await get_review_status(
+                team_id,
+                semester, 
+                review_type,
+                student_reg_num,
+                type
+            );
+            
+            if (status.reviewStatus === 'Completed') {
+                return {
+                    isEligible: false,
+                    reason: `Already completed ${type} review`
+                };
+            }
+        }
+        
+        return {
+            isEligible: true,
+            reason: 'Eligible for challenge review'
+        };
+    } catch (error) {
+        console.error("Error checking challenge review eligibility:", error);
+        throw error;
+    }
+};
+
+const check_optional_review_eligibility = async (student_reg_num, semester, review_type, team_id) => {
+    try {
+        // Check if student has already completed regular or optional review
+        const reviewTypes = ['regular', 'optional'];
+        
+        for (const type of reviewTypes) {
+            const status = await get_review_status(
+                team_id,
+                semester, 
+                review_type,
+                student_reg_num,
+                type
+            );
+            
+            if (status.reviewStatus === 'Completed') {
+                return {
+                    isEligible: false,
+                    reason: `Already completed ${type} review`
+                };
+            }
+        }
+        
+        return {
+            isEligible: true,
+            reason: 'Eligible for optional review'
+        };
+    } catch (error) {
+        console.error("Error checking optional review eligibility:", error);
+        throw error;
+    }
+};
+
 module.exports = {
     get_student_review_progress,
     get_average_marks,
-    get_review_status
+    get_review_status,
+    check_challenge_review_eligibility,
+    check_optional_review_eligibility
 };

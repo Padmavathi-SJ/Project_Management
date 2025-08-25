@@ -33,6 +33,7 @@ const optionalReviewRouter = require('./Routes/optionalReviewRoutes.js');
 const challengeReviewRouter = require('./Routes/challengeReviewRoutes.js');
 const adminRoutes = require("./Routes/admin_routes.js");
 
+const ExportData = require("./Routes/export_data.js");
 
 // Middleware
 app.use(express.json());
@@ -248,6 +249,7 @@ app.get("/api/user", authenticateJWT, (req, res, next) => {
 });
 
 app.use("/student", studentReviewRoutes);
+app.use("/api/data", ExportData);
 
 //console.log("Student review routes mounted");
 
